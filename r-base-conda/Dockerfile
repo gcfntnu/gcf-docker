@@ -19,5 +19,4 @@ RUN conda install --quiet --yes \
     r-tidyverse \
     r-devtools \
     r-biocmanager && \
-    conda clean -tipy && \
-    conda build purge-all
+    conda clean -tipsy
