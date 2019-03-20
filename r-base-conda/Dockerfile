@@ -17,6 +17,7 @@ RUN conda config --add channels defaults && \
 RUN conda install --quiet --yes \
     r-base==$R_VER \
     r-tidyverse \
+    r-devtools \
     r-biocmanager && \
     conda clean -tipy && \
     conda build purge-all
