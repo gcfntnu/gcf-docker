@@ -1,2 +1,2 @@
 # gcf-docker
-Docker files for autmated buids at dockerhub
+Docker files for automated builds at dockerhub. Genomics Core Facility (GCF), NTNU, Trondheim
