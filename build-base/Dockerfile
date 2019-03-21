@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     locales \
     zip \
     unzip \
+    ca-certificates \
     pkg-config && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
