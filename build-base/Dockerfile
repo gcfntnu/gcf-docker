@@ -2,7 +2,7 @@ FROM debian:stretch-slim
 
 RUN set -ex
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     automake \
     cmake \
