@@ -1,4 +1,4 @@
-FROM gcfntnu/base-build:latest
+FROM gcfntnu/build-base:latest
 
 ENV STAR_VERSION 2.7.0e
 
