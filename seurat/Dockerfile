@@ -4,3 +4,4 @@ RUN R --slave -e "devtools::install_github(repo = 'ChristophH/sctransform', ref 
 RUN R --slave -e "devtools::install_github(repo = 'satijalab/seurat', ref = 'release/3.0')"
 RUN R --slave -e "devtools::install_github(repo = 'hhoeflin/hdf5r')"
 RUN R --slave -e "devtools::install_github(repo = 'mojaveazure/loomR', ref = 'develop')"
+RUN pip install umap-learn

@@ -3,7 +3,7 @@ FROM gcfntnu/bcl2fastq:latest
 ENV CELLRANGER_VER 3.0.2
 ENV PATH /opt/cellranger-$CELLRANGER_VER:$PATH
 
-COPY files/ranger-$CELLRANGER_VER.tar.gz /opt/cellranger-$CELLRANGER_VER.tar.gz
+COPY files/cellranger-$CELLRANGER_VER.tar.gz /opt/cellranger-$CELLRANGER_VER.tar.gz
 
 RUN apt-get update --fix-missing &&  apt-get install -y ca-certificates && \
     apt-get clean && \
