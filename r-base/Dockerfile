@@ -18,6 +18,9 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
   libreadline-dev \
   liblzma-dev \
   libgit2-dev \
+  libcgal-dev \
+  libglu1-mesa-dev \
+  libx11-dev \
   libudunits2-dev && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
