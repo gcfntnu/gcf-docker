@@ -15,7 +15,31 @@ RUN conda install --quiet --yes \
     joblib \
     pandas=0.23.4 \
     scipy \
-    matplotlib && \
+    matplotlib \
+    scikit-learn \
+    jupyter \
+    gsl \
+    tzlocal \
+    simplegeneric \
+    natsort \
+    h5py \
+    tqdm \
+    patsy \
+    llvmlite \
+    numba \
+    networkx \
+    joblib \
+    numexpr \
+    pytables \
+    seaborn \
+    statsmodels \
+    python-igraph \
+    louvain \
+    r-essentials \
+    r-rgl \
+    r-biocmanager \
+    r-scran \
+    bioconductor-dropletutils \
     conda clean -tipsy
 
 RUN pip --no-cache-dir install \
@@ -30,4 +54,4 @@ RUN pip --no-cache-dir install \
     zappy \
     bioservices
 
-RUN pip install git+https://github.com/flatberg/scanpy-scripts.git
+RUN pip install git+https://github.com/flying-sheep/anndata2ri

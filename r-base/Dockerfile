@@ -5,6 +5,7 @@ ARG CRAN_MIRROR=https://cloud.r-project.org
 
 RUN apt-get update -qq && apt-get -y --no-install-recommends install \
   build-essential \
+  libreadline-dev \
   cmake \
   tzdata \
   fonts-dejavu \
