@@ -6,6 +6,8 @@ ENV SALMON_VER 0.13.1
 RUN conda install --quiet --yes \
     scanpy=$SCANPY_VER \
     salmon=$SALMON_VER \
+    gffread \
+    gtfparse \
     argparse && \
     conda clean -tipsy
 
