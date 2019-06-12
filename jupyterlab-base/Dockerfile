@@ -22,11 +22,13 @@ RUN conda install --quiet --yes \
     libgfortran \
     readline \
     simplegeneric \
+    ipywidgets>=7.2 \
     r-argparse \
     r-biocmanager \
     plotly \
     r-plotly \
     r-devtools \
+    r-tidyverse \
     rpy2 \
     argparse && \
     conda clean -tipsy
@@ -35,6 +37,9 @@ RUN conda install --quiet --yes -c plotly plotly plotly-orca plotly_express dash
 
 
 
-RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
-    jupyter labextension install plotlywidget && \
-    jupyter labextension install @jupyterlab/plotly-extension
+RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build && \
+    jupyter labextension install plotlywidget --no-build && \
+    jupyter labextension install @jupyterlab/plotly-extension --no-build && \
+    jupyter lab build
+
+RUN npm dedupe
