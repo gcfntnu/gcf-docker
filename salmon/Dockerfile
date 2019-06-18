@@ -15,6 +15,10 @@ RUN conda install --quiet --yes \
     salmon=$SALMON_VER \
     bedtools \
     mashmap \
+    samtools \
+    bioconductor-tximport \
+    r-argparse \
+    r-data.table \
     git && \
     conda clean -tipsy
 
