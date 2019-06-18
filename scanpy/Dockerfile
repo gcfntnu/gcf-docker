@@ -1,6 +1,6 @@
 FROM gcfntnu/python-base-conda:3.7
 
-ENV SCANPY_VER 1.4
+ENV SCANPY_VER 1.4.3
 
 RUN conda install --quiet --yes \
     scanpy=$SCANPY_VER \
@@ -38,8 +38,8 @@ RUN conda install --quiet --yes \
     r-essentials \
     r-rgl \
     r-biocmanager \
-    r-scran \
-    bioconductor-dropletutils \
+    bioconductor-scran \
+    bioconductor-dropletutils && \
     conda clean -tipsy
 
 RUN pip --no-cache-dir install \
