@@ -1,6 +1,6 @@
 FROM gcfntnu/python-base-conda:3.7
 
-ENV SCANPY_VER 1.4.3
+ENV SCANPY_VER 1.4.4
 
 RUN conda install --quiet --yes \
     scanpy=$SCANPY_VER \
@@ -17,6 +17,7 @@ RUN conda install --quiet --yes \
     scipy \
     matplotlib \
     scikit-learn \
+    scikit-image \
     jupyter \
     gsl \
     tzlocal \
@@ -35,9 +36,15 @@ RUN conda install --quiet --yes \
     statsmodels \
     python-igraph \
     louvain \
+    leidenalg \
+    bbknn \
+    loompy \
+    zappy \
+    bioservices \
     r-essentials \
     r-rgl \
     r-biocmanager \
+    rpy2 \
     bioconductor-scran \
     bioconductor-dropletutils && \
     conda clean -tipsy
@@ -45,13 +52,11 @@ RUN conda install --quiet --yes \
 RUN pip --no-cache-dir install \
     phate \
     fa2 \
-    bbknn \
     magic-impute \
-    leidenalg \
     vpolo \
     annoy \
     scprep \
-    zappy \
-    bioservices
+    scrublet
 
-RUN pip install git+https://github.com/flying-sheep/anndata2ri
+RUN pip install git+https://github.com/theislab/anndata2ri
+RUN pip install git+https://github.com/theislab/scvelo
