@@ -7,4 +7,4 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
     rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip && \
-    python3 -m pip install --no-cache-dir --upgrade pandas argparse numexpr bottleneck scipy pyarrow jinja2 beautifulsoup4 lxml xlrd xlwt blosc matplotlib cython
+    python3 -m pip install --no-cache-dir --upgrade pandas pyyaml argparse numexpr bottleneck scipy pyarrow jinja2 beautifulsoup4 lxml xlrd xlwt blosc matplotlib cython
