@@ -1,6 +1,6 @@
 FROM gcfntnu/build-base:latest
 
-ENV STAR_VERSION 2.7.0e
+ENV STAR_VERSION 2.7.2a
 
 ENV PACKAGES zlib1g-dev
 

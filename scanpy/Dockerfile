@@ -42,9 +42,10 @@ RUN conda install --quiet --yes \
     zappy \
     bioservices \
     r-essentials \
+    bioconductor-genomeinfodb \
+    bioconductor-genomeinfodbdata \
     r-rgl \
     r-biocmanager \
-    rpy2 \
     bioconductor-scran \
     bioconductor-dropletutils && \
     conda clean -tipsy
@@ -56,7 +57,10 @@ RUN pip --no-cache-dir install \
     vpolo \
     annoy \
     scprep \
-    scrublet
+    scrublet \
+    rpy2==3.0.1
 
 RUN pip install git+https://github.com/theislab/anndata2ri
 RUN pip install git+https://github.com/theislab/scvelo
+
+RUN R --slave -e "BiocManager::install('GenomeInfoDb')"
