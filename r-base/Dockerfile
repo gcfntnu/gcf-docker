@@ -1,4 +1,4 @@
-FROM rocker/tidyverse:3.6.0
+FROM rocker/tidyverse:3.6.1
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG CRAN_MIRROR=https://cloud.r-project.org
