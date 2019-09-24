@@ -3,7 +3,7 @@ FROM rocker/tidyverse:3.6.1
 ARG DEBIAN_FRONTEND=noninteractive
 ARG CRAN_MIRROR=https://cloud.r-project.org
 
-RUN apt-get update -qq && apt-get -y --no-install-recommends install \
+RUN apt-get update -qq && apt-get -y install \
   build-essential \
   libreadline-dev \
   cmake \
