@@ -1,6 +1,6 @@
 FROM gcfntnu/python-base-conda:3.7
 
-ENV SALMON_VER 0.14.0
+ENV SALMON_VER 1.0.0
 
 RUN apt-get update --fix-missing &&  apt-get install -y \
     original-awk \
@@ -16,9 +16,6 @@ RUN conda install --quiet --yes \
     bedtools \
     mashmap \
     samtools \
-    bioconductor-tximport \
-    r-argparse \
-    r-data.table \
     git && \
     conda clean -tipsy
 
