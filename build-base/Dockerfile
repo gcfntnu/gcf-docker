@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gfortran \
     g++ \
     cpp \
+    zlib1g-dev \
     libc6-dev \
     man-db \
     autoconf \
