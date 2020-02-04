@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
     unzip \
     ca-certificates \
+    subversion \
     pkg-config && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

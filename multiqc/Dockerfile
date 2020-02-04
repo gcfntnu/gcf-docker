@@ -9,4 +9,4 @@ RUN \
   g++ && \
   rm -rf /var/lib/apt/lists/*
 
-RUN pip install git+https://github.com/flatberg/MultiQC.git
+RUN pip install git+https://github.com/gcfntnu/MultiQC.git

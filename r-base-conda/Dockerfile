@@ -1,6 +1,6 @@
-FROM continuumio/miniconda:4.5.12
+FROM continuumio/miniconda3:4.7.12
 
-ENV R_VER 3.5.1
+ENV R_VER 3.6.1
 
 RUN apt-get update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \

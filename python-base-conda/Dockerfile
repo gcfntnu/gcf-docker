@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.5.12
+FROM continuumio/miniconda3:4.7.12
 
 RUN apt-get update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -13,4 +13,4 @@ RUN conda config --add channels defaults && \
     conda config --add channels conda-forge && \
     conda update --all
 
-RUN conda install --quiet --yes r-biocmanager r-optparse argparse && conda clean -tipsy
+RUN conda install --quiet --yes r-biocmanager r-optparse r-argparse argaprse && conda clean -tipsy
