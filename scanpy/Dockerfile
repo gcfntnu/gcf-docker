@@ -3,7 +3,7 @@ FROM gcfntnu/python-base-conda:3.7
 ENV SCANPY_VER 1.4.4
 
 RUN conda install --quiet --yes \
-    scanpy=$SCANPY_VER \
+    scanpy \
     argparse \
     pip \
     dask \
@@ -13,7 +13,7 @@ RUN conda install --quiet --yes \
     multicore-tsne \
     cython \
     joblib \
-    pandas=0.23.4 \
+    pandas \
     scipy \
     matplotlib \
     scikit-learn \
@@ -58,9 +58,10 @@ RUN pip --no-cache-dir install \
     annoy \
     scprep \
     scrublet \
-    rpy2==3.0.1
+    rpy2
 
+RUN pip install git+https://github.com/theislab/scanpy
 RUN pip install git+https://github.com/theislab/anndata2ri
 RUN pip install git+https://github.com/theislab/scvelo
-
+RUN pip install git+https://github.com/theislab/cellrank
 RUN R --slave -e "BiocManager::install('GenomeInfoDb')"
