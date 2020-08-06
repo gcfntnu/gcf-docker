@@ -1,9 +1,8 @@
 FROM gcfntnu/python-base-conda:3.7
 
-ENV SCANPY_VER 1.4.4
+ENV SCANPY_VER 1.4.6
 
 RUN conda install --quiet --yes \
-    scanpy \
     argparse \
     pip \
     dask \
