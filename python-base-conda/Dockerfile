@@ -13,4 +13,6 @@ RUN conda config --add channels defaults && \
     conda config --add channels conda-forge && \
     conda update --all
 
-RUN conda install --quiet --yes pandas pyyaml && conda clean -tipsy
+RUN conda install --quiet --yes mamba  && conda clean --all
+
+RUN mamba install -y pandas pyyaml openpyxl jinja2 scipy lxml html5lib matplotlib pytables pyreadstat tabulate zlib blosc fsspec numba pyarrow fastparquet gcsfs s3fs beautifulsoup4 bottleneck numexpr pyqt 
