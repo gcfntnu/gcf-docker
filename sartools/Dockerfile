@@ -1,8 +1,11 @@
-FROM gcfntnu/python-base-conda:3.7
+FROM gcfntnu/python-base-conda:4.8.2
 
-ENV SARTOOLS_VER 1.7.1
+ENV SARTOOLS_VER 1.7.3
 
-RUN conda install --quiet --yes \
+RUN mamba install --quiet --yes \
+    mscorefonts \
+    fonts-conda-ecosystem \
+    r-essentials \
     r-optparse \
     r-sartools=$SARTOOLS_VER && \
-    conda clean -tipsy
+    mamba clean -ai
