@@ -1,21 +1,7 @@
-FROM gcfntnu/build-base:latest
+FROM gcfntnu/python-base-conda:4.8.2
 
-ENV STAR_VERSION 2.7.3a
+ENV STAR_VERSION 2.7.5c
 
-ENV PACKAGES zlib1g-dev
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ${PACKAGES} && \
-    apt-get clean && \
-    cd /home && \
-    wget --no-check-certificate https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz && \
-    tar xzf ${STAR_VERSION}.tar.gz && \
-    cd STAR-${STAR_VERSION}/source && \
-    make STARstatic && \
-    mkdir /home/bin && \
-    cp STAR /home/bin && \
-    cd /home && \
-    'rm' -rf STAR-${STAR_VERSION} && \
-    apt-get --purge autoremove -y  ${PACKAGES}
-
-ENV PATH /home/bin:${PATH}
+RUN mamba install --quiet --yes \
+    star=$STAR_VER && \
+    mamba clean -ai
