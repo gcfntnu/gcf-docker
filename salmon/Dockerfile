@@ -1,6 +1,6 @@
-FROM gcfntnu/python-base-conda:3.7
+FROM gcfntnu/python-base-conda:4.8.2
 
-ENV SALMON_VER 1.1.0
+ENV SALMON_VER 1.3.0
 
 RUN apt-get update --fix-missing &&  apt-get install -y \
     original-awk \
@@ -11,13 +11,13 @@ RUN apt-get update --fix-missing &&  apt-get install -y \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN conda install --quiet --yes \
+RUN mamba install --quiet --yes \
     salmon=$SALMON_VER \
     bedtools \
     mashmap \
     samtools \
     git && \
-    conda clean -tipsy
+    mamba clean -a 
 
 WORKDIR /opt
 RUN git clone https://github.com/COMBINE-lab/SalmonTools.git
