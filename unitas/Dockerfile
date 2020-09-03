@@ -1,6 +1,6 @@
 FROM gcfntnu/build-base
 
-ENV UNITAS_VERSION 1.7.3
+ENV UNITAS_VERSION 1.7.5
 ENV PATH /opt/unitas/:$PATH
 
 RUN apt-get update --fix-missing &&  apt-get install -y \
