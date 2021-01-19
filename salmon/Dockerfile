@@ -1,6 +1,6 @@
 FROM gcfntnu/python-base-conda:4.8.2
 
-ENV SALMON_VER 1.3.0
+ENV SALMON_VER 1.4.0
 
 RUN apt-get update --fix-missing &&  apt-get install -y \
     original-awk \
@@ -13,6 +13,7 @@ RUN apt-get update --fix-missing &&  apt-get install -y \
 
 RUN mamba install --quiet --yes \
     salmon=$SALMON_VER \
+    terminus \
     bedtools \
     mashmap \
     samtools \
