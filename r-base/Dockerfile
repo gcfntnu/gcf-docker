@@ -1,9 +1,9 @@
-FROM rocker/tidyverse:3.6.1
+FROM bioconductor/bioconductor_docker:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG CRAN_MIRROR=https://cloud.r-project.org
 
-RUN apt-get update -qq && apt-get -y install \
+RUN apt-get update -qq && apt-get install -y --no-install-recommends apt-utils && apt-get -y install \
   build-essential \
   libreadline-dev \
   cmake \
@@ -30,18 +30,11 @@ RUN ln -s /bin/tar /bin/gtar
 RUN R --slave -e "options(unzip='/usr/bin/unzip')"
 RUN R CMD javareconf
 
-RUN install2.r --error \
-    --deps TRUE \
-    hexbin \
-    dbplyr \
-    RSQLite \
-    optparse
+ADD install.R /tmp/
+RUN R -f /tmp/install.R
+
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip && \
   python3 -m pip install --no-cache-dir --upgrade setuptools wheel && \
   python3 -m pip install --no-cache-dir --upgrade numpy pandas sphinx jinja2 tzlocal && \
-  python3 -m pip install --no-cache-dir https://bitbucket.org/rpy2/rpy2/get/version_2.9.x.tar.gz
-
-
-ADD install.R /tmp/
-RUN R -f /tmp/install.R
+  python3 -m pip install --no-cache-dir --upgrade rpy2
