@@ -1,9 +1,4 @@
 FROM gcfntnu/python-base-conda:4.8.2
 
-COPY ivar.yaml /tmp/env.yaml
-
-RUN mamba env update \
-    -f /tmp/env.yaml && \
-    mamba clean --all
-
+RUN conda install --yes --quiet -c bioconda -c conda-forge ivar=1.3 samtools=1.10
 
