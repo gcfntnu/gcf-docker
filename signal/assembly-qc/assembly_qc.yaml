@@ -1,0 +1,7 @@
+name: assembly_qc
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - quast=5.0.2
