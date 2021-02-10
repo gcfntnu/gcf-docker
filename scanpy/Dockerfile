@@ -9,7 +9,6 @@ RUN mamba install --quiet --yes \
     phate \
     cellrank \
     scvi \
-    vpolo \
     rpy2 \
     r-argparse \
     pip \
@@ -63,8 +62,12 @@ RUN mamba install --quiet --yes \
     loompy \
     r-biocmanager \
     bioconductor-scran \
-    bioconductor-dropletutils && \
-    mamba clean -ai
+    bioconductor-dropletutils 
+
+
+#mamba clean -ai
+
+RUN mamba install --yes vpolo
 
 RUN pip --no-cache-dir install \
     fa2 \
