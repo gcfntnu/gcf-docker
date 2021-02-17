@@ -1,8 +1,11 @@
-FROM continuumio/miniconda3:4.8.2
+FROM continuumio/miniconda3:4.9.2
 
 RUN apt-get update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \
+    gawk \
+    unzip \
+    p7zip-full \
     git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

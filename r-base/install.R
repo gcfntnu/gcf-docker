@@ -1,42 +1,23 @@
-# copied from bioconductor dockerfiles (relase/core)
 
-if ("BiocManager" %in% rownames(installed.packages()))
-	remove.packages("BiocManager")
-
-install.packages("BiocManager", repos="https://cran.rstudio.com")
-#install.packages("devtools", repos="https://cran.rstudio.com")
-#devtools::install_github("Bioconductor/BiocManager")
 library(BiocManager)
 
-if(BiocManager::version() != "3.9"){
-    BiocManager::install(version="3.9",
-                         update=TRUE, ask=FALSE)
-}
 
-builtins <- c("Matrix", "KernSmooth", "mgcv")
-
-for (builtin in builtins)
-    if (!suppressWarnings(require(builtin, character.only=TRUE)))
-        suppressWarnings(BiocManager::install(builtin,
-                                              version="3.9",
-                                              update=TRUE, ask=FALSE))
-
-pkgs <- c(
-    "OrganismDbi",
-    "ExperimentHub",
-    "Biobase",
-    "BiocParallel",
-    "biomaRt",
-    "Biostrings",
-    "BSgenome",
-    "ShortRead",
-    "IRanges",
-    "GenomicRanges",
-    "GenomicAlignments",
-    "GenomicFeatures",
-    "SummarizedExperiment",
-    "DelayedArray"
-    )
+pkgs <- c("OrganismDbi",
+          "ExperimentHub",
+          "Biobase",
+          "BiocParallel",
+          "biomaRt",
+          "Biostrings",
+          "BSgenome",
+          "ShortRead",
+          "IRanges",
+          "GenomicRanges",
+          "GenomicAlignments",
+          "GenomicFeatures",
+          "SummarizedExperiment",
+          "DelayedArray",
+	  "argparse"
+          )
 
 ap.db <- available.packages(contrib.url(BiocManager::repositories()))
 ap <- rownames(ap.db)

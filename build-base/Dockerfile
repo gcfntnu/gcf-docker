@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:16.04
 
 RUN set -ex
 ENV TZ=Europe/Oslo
@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     build-essential \
     gfortran \
+    haskell-stack \
     g++ \
     cpp \
     zlib1g-dev \
