@@ -1,6 +1,6 @@
-FROM gcfntnu/python-base-conda:3.7
+FROM gcfntnu/python-base-conda:4.8.2
 
-ENV R_VER 4.0.2
+ENV R_VER 4.0.3
 
 
 RUN mamba install --quiet --yes \
