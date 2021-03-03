@@ -1,6 +1,6 @@
-FROM gcfntnu/python-base-conda:4.8.2
+FROM gcfntnu/python-base-conda:4.9.2
 
-ENV SCANPY_VER 1.6.0
+ENV SCANPY_VER 1.7.0
 
 RUN mamba install --quiet --yes \
     scanpy=$SCANPY_VER \

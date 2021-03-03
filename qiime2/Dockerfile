@@ -19,4 +19,5 @@ RUN /bin/bash -c "source activate /opt/conda/envs/qiime2-2020.8 && ./install_qii
 COPY install_picrust2.sh .
 RUN /bin/bash -c "source activate /opt/conda/envs/qiime2-2020.8 && ./install_picrust2.sh"
 
+RUN echo "HEPP"
 RUN pip install git+https://github.com/bokulich-lab/RESCRIPt.git

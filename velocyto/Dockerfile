@@ -1,21 +1,11 @@
-FROM gcfntnu/python-base-conda:3.7
+FROM gcfntnu/python-base-conda:4.9.2
 
-RUN conda install numpy \
- scipy \
- cython \
- numba \
- matplotlib \
- scikit-learn \
- h5py \
- click \
- R \
- rpy2 \
- pytables \
- numba \
- pysam \
+RUN mamba install --quiet --yes \
  loompy \
- louvain \
- scanpy 
+ scanpy \
+ velocyto.py \
+ scvelo &&\
+ mamba clean --all
 
 # Install dependencies using pip
-RUN pip install -U --no-deps velocyto scvelo
+# RUN pip install -U --no-deps velocyto scvelo
