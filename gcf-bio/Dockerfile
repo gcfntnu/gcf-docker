@@ -58,6 +58,8 @@ RUN mamba install --quiet --yes \
   gffcompare \
   biobambam \
   skewer \
+  gtfparse \
+  biopython \
   seqtk && \
   mamba clean -ai
 
