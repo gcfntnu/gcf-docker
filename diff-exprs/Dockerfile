@@ -5,7 +5,6 @@ RUN mamba install --quiet --yes \
     bioconductor-tximeta \
     r-cairo \
     font-ttf-ubuntu \
-    r-optparse \
     bioconductor-edger \
     r-plotly \
     r-locfdr \
