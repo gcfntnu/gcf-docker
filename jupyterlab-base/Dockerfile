@@ -1,45 +1,42 @@
-FROM jupyter/scipy-notebook:latest
+FROM gcfntnu/python-base-conda:4.8.2
 
-USER root
 RUN apt-get update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \
     libreadline-dev \
-    less \
     git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-USER $NB_UID
 RUN conda update conda
 RUN conda config --add channels defaults && \
     conda config --add channels bioconda && \
     conda config --add channels conda-forge && \
-    conda update --all
+    conda config --add channels plotly && \
+    conda install mamba
 
 
-RUN conda install --quiet --yes \
-    libgfortran \
+RUN mamba install --yes \
+    jupyterlab \
     readline \
     simplegeneric \
-    ipywidgets>=7.2 \
+    ipywidgets  \
     r-argparse \
     r-biocmanager \
     plotly \
+    plotly-orca \
+    dash-table \
+    dash \
+    jupyterlab-dash \
+    colorlover \
     r-plotly \
     r-devtools \
     r-tidyverse \
-    rpy2 \
-    argparse && \
-    conda clean -tipsy
-
-RUN conda install --quiet --yes -c plotly plotly plotly-orca plotly_express dash-table dash jupyterlab-dash colorlover && conda clean -tipsy
+    rpy2 && \
+    mamba clean --all
 
 
-
-RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build && \
-    jupyter labextension install plotlywidget --no-build && \
-    jupyter labextension install @jupyterlab/plotly-extension --no-build && \
-    jupyter lab build
-
-RUN npm dedupe
+RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
+    jupyter labextension install @jupyter-widgets/jupyterlab-manager plotlywidget
+    
+RUN jupyter lab build
