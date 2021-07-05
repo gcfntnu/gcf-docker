@@ -18,4 +18,4 @@ RUN conda config --add channels defaults && \
 
 RUN conda install --quiet --yes mamba  && conda clean --all
 
-RUN mamba install -y pandas pyyaml openpyxl jinja2 scipy lxml html5lib matplotlib pytables pyreadstat tabulate zlib blosc fsspec numba pyarrow fastparquet gcsfs s3fs beautifulsoup4 bottleneck numexpr pyqt 
+RUN mamba install -y pandas pyyaml openpyxl jinja2 scipy lxml html5lib matplotlib pytables pyreadstat tabulate zlib blosc fsspec numba pyarrow fastparquet gcsfs s3fs beautifulsoup4 bottleneck numexpr pyqt snakemake 
