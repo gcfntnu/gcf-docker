@@ -1,4 +1,4 @@
-FROM gcfntnu/rnaseq:1.0
+FROM gcfntnu/rnaseq:1.3
 
 RUN mamba install -y -q \
   nodejs \
@@ -12,7 +12,7 @@ RUN mamba install -y -q \
 RUN mkdir /tmp/work
 WORKDIR /tmp/work
 
-RUN R -e "IRkernel::installspec(name='ir43', display='R4.0.3', prefix='/opt/conda', user=FALSE)"
+#RUN R -e "IRkernel::installspec(name='ir43', display='R4.0.3', prefix='/opt/conda', user=FALSE)"
 
 RUN export NODE_OPTIONS=--max-old-space-size=4096
 RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build

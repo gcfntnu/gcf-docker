@@ -1,6 +1,6 @@
-FROM gcfntnu/python-base-conda:4.8.2
+FROM gcfntnu/python-base-conda:4.10.3
 
-ENV SALMON_VER 1.4.0
+ENV SALMON_VER 1.5.2
 
 RUN apt-get update --fix-missing &&  apt-get install -y \
     original-awk \

@@ -1,4 +1,4 @@
-FROM gcfntnu/diff-exprs:1.2
+FROM gcfntnu/diff-exprs:1.3
 
 RUN mamba install -y -q \
   nodejs \
