@@ -1,9 +1,9 @@
 FROM gcfntnu/bcl2fastq:latest
 
-ENV CELLRANGER_VER 6.0.2
-ENV PATH /opt/cellranger-$CELLRANGER_VER:$PATH
+ENV SPACERANGER_VER 1.3.0
+ENV PATH /opt/spaceranger-$SPACERANGER_VER:$PATH
 
-COPY files/cellranger-$CELLRANGER_VER.tar.gz /opt/cellranger-$CELLRANGER_VER.tar.gz
+COPY files/spaceranger-$SPACERANGER_VER.tar.gz /opt/spaceranger-$SPACERANGER_VER.tar.gz
 
 RUN apt-get update --fix-missing &&  apt-get install -y ca-certificates && \
     apt-get clean && \
@@ -11,8 +11,8 @@ RUN apt-get update --fix-missing &&  apt-get install -y ca-certificates && \
 
 RUN \
   cd /opt && \
-  tar -xzvf cellranger-$CELLRANGER_VER.tar.gz && \
-  rm -rf /opt/cellranger-$CELLRANGER_VER.tar.gz
+  tar -xzvf spaceranger-$SPACERANGER_VER.tar.gz && \
+  rm -rf /opt/spaceranger-$SPACERANGER_VER.tar.gz
 
 
 RUN \
