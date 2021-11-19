@@ -1,13 +1,14 @@
-FROM gcfntnu/python-base-conda:4.8.2
+FROM gcfntnu/python-base-conda:4.10.3
 
 ENV TXIMPORT_VER 1.18.0
-ENV TXIMETA_VER 1.8.0
+ENV TXIMETA_VER 1.12.0
 
 RUN mamba install --quiet --yes \
     r-argparse \
     r-readr \
     r-matrix \
-    bioconductor-tximeta=$TXIMETA_VER \
+    r-data.table \
+    bioconductor-tximeta \
     bioconductor-deseq2 \
     bioconductor-genomeinfodbdata \
     bioconductor-genomeinfodb \
