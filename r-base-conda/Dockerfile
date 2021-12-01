@@ -1,10 +1,11 @@
-FROM gcfntnu/python-base-conda:4.9.2
+FROM gcfntnu/python-base-conda:4.10.3
 
-ENV R_VER 4.0.5
+ENV R_VER 4.1.1
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     fonts-dejavu \
+    libxml2-dev \
     unixodbc \
     unixodbc-dev \
     gfortran \
@@ -16,6 +17,7 @@ RUN mamba install --quiet --yes -v -v \
     font-ttf-ubuntu \
     r-base==$R_VER \
     r-rcurl \
+    r-xml \
     r-cairo \
     r-optparse \
     r-tidyverse \
