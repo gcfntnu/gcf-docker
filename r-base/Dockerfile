@@ -7,6 +7,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends apt-utils &
   build-essential \
   libreadline-dev \
   cmake \
+  gfortran \
   tzdata \
   fonts-dejavu \
   python3-dev \
@@ -22,6 +23,9 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends apt-utils &
   libcgal-dev \
   libglu1-mesa-dev \
   libx11-dev \
+  libxml2-dev \
+  ghostscript \
+  xdg-utils \
   libudunits2-dev && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*

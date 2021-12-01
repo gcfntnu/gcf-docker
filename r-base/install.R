@@ -15,8 +15,7 @@ pkgs <- c("OrganismDbi",
           "GenomicAlignments",
           "GenomicFeatures",
           "SummarizedExperiment",
-          "DelayedArray",
-	  "argparse"
+          "DelayedArray"
           )
 
 ap.db <- available.packages(contrib.url(BiocManager::repositories()))
