@@ -4,6 +4,7 @@ RUN mamba install --quiet --yes \
  loompy \
  scanpy \
  velocyto.py \
+ samtools \
  scvelo &&\
  mamba clean --all
 
