@@ -1,12 +1,12 @@
-FROM gcfntnu/rnaseq:1.3
+FROM gcfntnu/rnbeads:2.12.2
 
 RUN mamba install -y -q \
   nodejs \
   pandoc \
   nbconvert \
+  r-plotly \
   r-irkernel \
   r-htmlwidgets \
-  snakemake \
   jupyterlab && \
   mamba clean -ai
 

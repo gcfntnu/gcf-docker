@@ -1,9 +1,10 @@
-FROM continuumio/miniconda3:4.10.3
+FROM continuumio/miniconda3:4.10.3p1
 
 RUN apt-get update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \
     gawk \
+    less \
     unzip \
     p7zip-full \
     git && \
@@ -18,4 +19,4 @@ RUN conda config --add channels defaults && \
 
 RUN conda install --quiet --yes mamba  && conda clean --all
 
-RUN mamba install -y pandas pyyaml openpyxl jinja2 scipy lxml html5lib matplotlib pytables pyreadstat tabulate zlib blosc fsspec numba pyarrow fastparquet gcsfs s3fs beautifulsoup4 bottleneck numexpr pyqt snakemake
+RUN mamba install -y pandas pyyaml openpyxl jinja2 scipy lxml html5lib matplotlib pytables pyreadstat tabulate zlib blosc fsspec numba pyarrow fastparquet gcsfs s3fs beautifulsoup4 bottleneck numexpr pyqt snakemake csvkit

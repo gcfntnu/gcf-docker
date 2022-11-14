@@ -23,7 +23,7 @@ RUN mamba install  --yes \
     r-autoplotly \
     r-fansi \
     r-cowplot \
-    r-ggplotify \ 
+    r-ggplotify \
     r-ggupset \
     r-ggfortify \
     r-ggalt \
@@ -34,7 +34,7 @@ RUN mamba install  --yes \
     r-plotly \
     r-locfdr \
     bioconductor-sva \
-    bioconductor-ihw \	
+    bioconductor-ihw \
     bioconductor-fishpond \
     bioconductor-drimseq \
     r-compositions \

@@ -1,6 +1,6 @@
 FROM gcfntnu/python-base-conda:4.10.3
 
-ENV R_VER 4.1.1
+ENV R_VER 4.2.1
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -17,6 +17,7 @@ RUN mamba install --quiet --yes -v -v \
     font-ttf-ubuntu \
     r-base==$R_VER \
     r-rcurl \
+    r-stringr \
     r-xml \
     r-cairo \
     r-optparse \

@@ -1,4 +1,4 @@
-FROM gcfntnu/scanpy:1.7.0
+FROM gcfntnu/scanpy:1.9.1
 
 RUN mamba install -y -q jupyterlab snakemake
 

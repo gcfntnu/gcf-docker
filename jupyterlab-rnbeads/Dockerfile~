@@ -6,7 +6,6 @@ RUN mamba install -y -q \
   nbconvert \
   r-irkernel \
   r-htmlwidgets \
-  snakemake \
   jupyterlab && \
   mamba clean -ai
 
