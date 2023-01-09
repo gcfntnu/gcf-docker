@@ -1,6 +1,6 @@
 FROM gcfntnu/bcl2fastq:latest
 
-ENV CELLRANGER_VER 7.0.1
+ENV CELLRANGER_VER 7.1.0
 ENV PATH /opt/cellranger-$CELLRANGER_VER:$PATH
 
 COPY files/cellranger-$CELLRANGER_VER.tar.gz /opt/cellranger-$CELLRANGER_VER.tar.gz
