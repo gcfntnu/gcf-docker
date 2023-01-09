@@ -1,6 +1,6 @@
 FROM gcfntnu/scanpy:1.9.1
 
-RUN mamba install -y -q jupyterlab snakemake
+RUN mamba install -y -q jupyterlab snakemake 'nbformat<5.1.0'
 
 RUN mkdir /tmp/work
 
