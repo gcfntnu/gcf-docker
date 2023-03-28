@@ -1,6 +1,6 @@
-FROM gcfntnu/python-base-conda:4.10.3
+FROM gcfntnu/python-base-conda:22.11.1
 
-ENV SCANPY_VER 1.9.1
+ENV SCANPY_VER 1.9.2
 
 RUN mamba install --quiet --yes \
     scanpy=$SCANPY_VER \
@@ -13,7 +13,7 @@ RUN mamba install --quiet --yes \
     rpy2 \
     r-argparse \
     pip \
-    dask=2022.10.0 \
+    dask \
     python-annoy \
     scrublet \
     pypairs \
@@ -67,6 +67,7 @@ RUN mamba install --quiet --yes \
     bioconductor-scran \
     bioconductor-dropletutils \
     bioconductor-fishpond \
+    bioconductor-scds \
     vpolo \
     pyroe 
 
@@ -83,7 +84,7 @@ RUN mamba install --quiet --yes \
 #RUN pip install git+https://github.com/k3yavi/vpolo.git
 
 #RUN pip install git+https://github.com/theislab/scanpy
-RUN pip install llvmlite==0.37 --ignore-installed
+#RUN pip install llvmlite==0.37 --ignore-installed
 RUN pip install  git+https://github.com/theislab/batchglm@v0.7.4
 RUN pip install git+https://github.com/theislab/diffxpy@v0.7.4
 #RUN pip install git+https://github.com/theislab/anndata2ri
@@ -93,6 +94,10 @@ RUN pip install git+https://github.com/theislab/diffxpy@v0.7.4
 #RUN pip install git+https://github.com/KrishnaswamyLab/MAGIC.git#subdirectory=python
 #RUN pip --no-cache-dir install dca
 
-RUN R --slave -e "BiocManager::install('GenomeInfoDb', force=TRUE)"
+RUN pip install --force-reinstall rpy2
 
+RUN R --slave -e "BiocManager::install(c('GenomeInfoDb', 'GenomeInfoDbData'), force=TRUE)"
+
+RUN pip install git+https://gitlab.com/georgy.m/conorm.git
 ENV OMPI_MCA_opal_cuda_support true
+ENV R_HOME /opt/conda/lib/R
