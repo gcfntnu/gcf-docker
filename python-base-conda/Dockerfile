@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.10.3p1
+FROM continuumio/miniconda3:22.11.1
 
 RUN apt-get update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
