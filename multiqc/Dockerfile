@@ -1,4 +1,4 @@
-FROM gcfntnu/python-base:3.7
+FROM gcfntnu/python-base:3.9
 
 LABEL \
   author="Arnar Flatberg" \
