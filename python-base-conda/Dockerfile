@@ -1,22 +1,15 @@
-FROM continuumio/miniconda3:22.11.1
+FROM continuumio/miniconda3:23.10.0-1
 
-RUN apt-get update --fix-missing && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    build-essential \
-    gawk \
-    less \
-    unzip \
-    p7zip-full \
-    git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# pin python version
+ENV PYTHON_VER 3.9
 
-RUN conda update conda
 RUN conda config --add channels defaults && \
     conda config --add channels bioconda && \
     conda config --add channels conda-forge && \
     conda update --all
 
-RUN conda install --quiet --yes mamba  && conda clean --all
-
-RUN mamba install -y pandas pyyaml openpyxl jinja2 scipy lxml html5lib matplotlib pytables pyreadstat tabulate zlib blosc fsspec numba pyarrow fastparquet gcsfs s3fs beautifulsoup4 bottleneck numexpr pyqt snakemake csvkit
+RUN conda install --yes python=${PYTHON_VER} mamba  \
+    && conda clean -afy \
+    && find /opt/conda/ -follow -type f -name '*.a' -delete \
+    && find /opt/conda/ -follow -type f -name '*.pyc' -delete \
+    && find /opt/conda/ -follow -type f -name '*.js.map' -delete
