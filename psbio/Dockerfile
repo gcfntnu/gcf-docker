@@ -1,12 +1,12 @@
 FROM gcfntnu/python-base-conda:3.12
 
-ARG SPLITPIPE_VER=1.8.1
+ARG SPLITPIPE_VER=1.8.2
 ARG INSTALL_IMMUNE_DBS=false
 
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 
-RUN cat > /opt/conda/.condarc <<'EOF'
+RUN cat > "$(conda info --base)/.condarc" <<'EOF'
 channels:
   - conda-forge
   - bioconda
@@ -49,7 +49,7 @@ import sys
 assert sys.version_info >= (3, 12, 8), sys.version
 PY
 
-RUN mamba install --quiet --yes \
+RUN conda install --quiet --yes \
         pip \
         #"numpy>=2.0" \
         #"Cython>=3.0" \
@@ -85,7 +85,7 @@ RUN mamba install --quiet --yes \
         libxml2 \
         libgomp \
         htslib && \
-    mamba clean --all --yes
+    conda clean --all --yes
 
 COPY ParseBiosciences-Pipeline.${SPLITPIPE_VER}.zip /tmp/
 
