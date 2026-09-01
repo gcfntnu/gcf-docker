@@ -1,0 +1,26 @@
+ARG MINICONDA_VERSION=26.5.3
+FROM anaconda/miniconda:${MINICONDA_VERSION}
+
+ENV PYTHON_VER=3.13 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Channel priority:
+#   conda-forge
+#   bioconda
+#   defaults
+#
+# --add prepends channels, so add them in reverse priority order.
+RUN conda config --system --remove-key channels && \
+    conda config --system --add channels defaults && \
+    conda config --system --add channels bioconda && \
+    conda config --system --add channels conda-forge && \
+    conda config --system --set channel_priority strict
+
+# Required for access to the Anaconda defaults channels.
+RUN conda tos accept --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --channel https://repo.anaconda.com/pkgs/r
+
+RUN conda install --yes \
+        python=${PYTHON_VER} \
+        pip && \
+    conda clean --all --yes

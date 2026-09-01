@@ -1,15 +1,14 @@
 FROM continuumio/miniconda3:23.10.0-1
 
-# pin python version
-ENV PYTHON_VER 3.9
+ENV PYTHON_VER=3.9 \
+    PYTHONDONTWRITEBYTECODE=1
 
-RUN conda config --add channels defaults && \
-    conda config --add channels bioconda && \
-    conda config --add channels conda-forge && \
-    conda update --all
+RUN conda config --system --add channels defaults && \
+    conda config --system --add channels bioconda && \
+    conda config --system --add channels conda-forge && \
+    conda config --system --set channel_priority strict
 
-RUN conda install --yes python=${PYTHON_VER} mamba  \
-    && conda clean -afy \
-    && find /opt/conda/ -follow -type f -name '*.a' -delete \
-    && find /opt/conda/ -follow -type f -name '*.pyc' -delete \
-    && find /opt/conda/ -follow -type f -name '*.js.map' -delete
+RUN conda install --yes \
+        python=${PYTHON_VER} \
+        pip && \
+    conda clean --all --yes
