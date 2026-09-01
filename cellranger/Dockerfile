@@ -1,11 +1,12 @@
 FROM gcfntnu/build-base:22.04
 
-ENV CELLRANGER_VER 7.2.0
-ENV PATH /opt/cellranger-$CELLRANGER_VER:$PATH
+ENV CELLRANGER_VER=10.1.0
+ENV PATH=/opt/cellranger-$CELLRANGER_VER:$PATH
+ENV DEBIAN_FRONTEND=noninteractive
 
 COPY files/cellranger-$CELLRANGER_VER.tar.gz /opt/cellranger-$CELLRANGER_VER.tar.gz
 
-RUN apt update  &&  apt install -y ca-certificates && \
+RUN apt-get update  &&  apt-get install -y ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -25,3 +26,5 @@ RUN \
   make release
 
 ENV PATH /opt/gffread/gffread:$PATH
+
+RUN cellranger --version && gffread --version
