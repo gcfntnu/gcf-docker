@@ -1,19 +1,19 @@
-FROM continuumio/miniconda3:latest
+ARG MINICONDA_VERSION=26.5.3
+FROM anaconda/miniconda:${MINICONDA_VERSION}
 
-# pin python version
-ENV PYTHON_VER 3.10
-ENV PYTHONDONTWRITEBYTECODE=true
-ENV PIP_CONFIG_FILE /etc/pip.conf
+ENV PYTHON_VER=3.10 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_CONFIG_FILE=/etc/pip.conf
 COPY pip.conf /etc/pip.conf
 
-RUN conda config --add channels defaults && \
-    conda config --add channels bioconda && \
-    conda config --add channels conda-forge && \
-    conda config --set channel_priority strict && \
-    conda update --all
+RUN conda config --system --remove-key channels && \
+    conda config --system --add channels defaults && \
+    conda config --system --add channels bioconda && \
+    conda config --system --add channels conda-forge && \
+    conda config --system --set channel_priority strict && \
+    conda config --system --set plugins.auto_accept_tos yes
 
-RUN conda install --yes python=${PYTHON_VER} pip mamba  \
-    && conda clean -afy \
-    && find /opt/conda/ -follow -type f -name '*.a' -delete \
-    && find /opt/conda/ -follow -type f -name '*.pyc' -delete \
-    && find /opt/conda/ -follow -type f -name '*.js.map' -delete
+RUN conda install --yes \
+        python=${PYTHON_VER} \
+        pip && \
+    conda clean --all --yes
