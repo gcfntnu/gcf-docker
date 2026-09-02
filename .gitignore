@@ -104,3 +104,34 @@ venv.bak/
 .mypy_cache/
 
 files/
+
+# One-off container builds not referenced by gcf-workflows
+/APA-Scan/
+/azimuth/
+/biopython/
+/cell-signal-analysis/
+/clust/
+/decon-squid/
+/eisa/
+/evergreen/
+/genometools/
+/gphmr/
+/isomirmap/
+/jupyterlab-decon-squid/
+/jupyterlab-pywgcna/
+/jupyterlab-rapids-scanpy/
+/jupyterlab-rapids-singlecell/
+/jupyterlab-scalpha/
+/pipeline-umi-amplicon/
+/python-cuda-mamba/
+/pywgcna/
+/rnaseq-ts/
+/sample/
+/sampleqc/
+/scalpha/
+/scanpy-gpu/
+/scvi/
+/spladder/
+/spring/
+/triku/
+/validrops/
