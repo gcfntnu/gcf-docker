@@ -105,6 +105,13 @@ venv.bak/
 
 files/
 
+# Local backups and process artifacts
+*~
+*.bak
+*.old
+*.pid
+*_pid
+
 # One-off container builds not referenced by gcf-workflows
 /APA-Scan/
 /azimuth/
