@@ -112,6 +112,12 @@ files/
 *.pid
 *_pid
 
+# UNITAS local downloads and test output
+/unitas/UNITAS_*/
+/unitas/dummy.txt
+/unitas/seqmap.exe
+/unitas/unitas*.pl
+
 # One-off container builds not referenced by gcf-workflows
 /APA-Scan/
 /azimuth/
