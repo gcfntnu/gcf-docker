@@ -15,5 +15,6 @@ RUN conda config --system --remove-key channels && \
 
 RUN conda install --yes \
         python=${PYTHON_VER} \
-        pip && \
+        pip \
+        git && \
     conda clean --all --yes

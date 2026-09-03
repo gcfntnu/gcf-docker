@@ -10,5 +10,6 @@ RUN conda config --system --add channels defaults && \
 
 RUN conda install --yes \
         python=${PYTHON_VER} \
-        pip && \
+        pip \
+        git && \
     conda clean --all --yes
