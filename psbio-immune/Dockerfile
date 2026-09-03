@@ -1,10 +1,12 @@
 FROM gcfntnu/python-base-conda:3.12
 
+ARG SPLITPIPE_VER=1.8.2
+
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 
-# Force conda/mamba to avoid defaults/Anaconda ToS.
-RUN cat > /opt/conda/.condarc <<'EOF'
+# Force Conda to avoid defaults/Anaconda ToS.
+RUN cat > "$(conda info --base)/.condarc" <<'EOF'
 channels:
   - conda-forge
   - bioconda
@@ -46,7 +48,7 @@ assert sys.version_info >= (3, 12, 8), sys.version
 PY
 
 # Keep this conda transaction small. Let pip resolve most Python deps from Parse metadata.
-RUN mamba install --quiet --yes \
+RUN conda install --quiet --yes \
         -c conda-forge \
         -c bioconda \
         pip \
@@ -59,15 +61,15 @@ RUN mamba install --quiet --yes \
         libgomp \
         htslib \
         gsl && \
-    mamba clean --all --yes
+    conda clean --all --yes
 
 # Keep the source tree under /opt.
 # Immune DBs are installed into the source tree under splitpipe/immune_dir.
-COPY ParseBiosciences-Pipeline.1.8.1.zip /opt/
+COPY files/ParseBiosciences-Pipeline.${SPLITPIPE_VER}.zip /opt/
 
 RUN cd /opt && \
-    unzip ParseBiosciences-Pipeline.1.8.1.zip && \
-    cd ParseBiosciences-Pipeline.1.8.1 && \
+    unzip ParseBiosciences-Pipeline.${SPLITPIPE_VER}.zip && \
+    cd ParseBiosciences-Pipeline.${SPLITPIPE_VER} && \
     bash ./install_immune_dbs.sh -I -y && \
     pip install --no-cache-dir . && \
     bash ./install_immune_dbs.sh -c
@@ -79,5 +81,5 @@ RUN split-pipe --help >/dev/null && \
     STAR --version >/dev/null && \
     fastqc --version >/dev/null && \
     bgzip --help >/dev/null && \
-    test -d /opt/ParseBiosciences-Pipeline.1.8.1/splitpipe/immune_dir && \
-    find /opt/ParseBiosciences-Pipeline.1.8.1/splitpipe/immune_dir -mindepth 1 | head -n 1 >/dev/null
+    test -d /opt/ParseBiosciences-Pipeline.${SPLITPIPE_VER}/splitpipe/immune_dir && \
+    find /opt/ParseBiosciences-Pipeline.${SPLITPIPE_VER}/splitpipe/immune_dir -mindepth 1 | head -n 1 >/dev/null

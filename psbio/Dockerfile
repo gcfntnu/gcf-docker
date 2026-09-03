@@ -87,7 +87,7 @@ RUN conda install --quiet --yes \
         htslib && \
     conda clean --all --yes
 
-COPY ParseBiosciences-Pipeline.${SPLITPIPE_VER}.zip /tmp/
+COPY files/ParseBiosciences-Pipeline.${SPLITPIPE_VER}.zip /tmp/
 
 RUN cd /tmp && \
     unzip ParseBiosciences-Pipeline.${SPLITPIPE_VER}.zip && \
