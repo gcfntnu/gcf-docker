@@ -1,5 +1,8 @@
 FROM continuumio/miniconda3:23.10.0-1
 
+# Keep compatibility with tools that expect Conda at /opt/conda.
+RUN if [ ! -e /opt/conda ]; then ln -s "$(conda info --base)" /opt/conda; fi
+
 ENV PYTHON_VER=3.9 \
     PYTHONDONTWRITEBYTECODE=1
 

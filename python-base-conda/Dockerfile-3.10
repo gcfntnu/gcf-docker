@@ -1,5 +1,8 @@
 ARG MINICONDA_VERSION=26.5.3
 FROM anaconda/miniconda:${MINICONDA_VERSION}
+# Keep compatibility with tools that expect Conda at /opt/conda.
+RUN if [ ! -e /opt/conda ]; then ln -s "$(conda info --base)" /opt/conda; fi
+
 
 ENV PYTHON_VER=3.10 \
     PYTHONDONTWRITEBYTECODE=1 \
