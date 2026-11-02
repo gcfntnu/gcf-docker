@@ -14,6 +14,11 @@ cannot export flat figures with Plotly >=6.1. The lock is specific to Python
 architecture. Source lives in
 [gcfntnu/gcf-multiqc](https://github.com/gcfntnu/gcf-multiqc/tree/implementation/upstream-1.35).
 
+The image also installs `procps`, NSS/NSPR, Expat and DejaVu fonts for MultiQC's
+flat-report renderer. These Debian packages come from the base distribution's
+repositories; the release validation records their installed versions. The
+Python wheel lock is not a lock of the Debian package repositories.
+
 The command `multiqc` is on PATH, the existing logo remains at
 `/opt/images/logo_ntnu.png`, and no forced entry point interferes with the
 suite's Apptainer wrapper. This directory contains only public build inputs.
