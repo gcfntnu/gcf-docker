@@ -1,8 +1,8 @@
 # GCF MultiQC rc4 validation
 
 2 November 2026. The rc4 reporting image is published and deployed to an isolated
-suite test installation. Copied-input acceptance has passed; the fresh seven-fixture
-server run is underway. Production adoption remains pending.
+suite test installation. The fresh seven-fixture integration run and all fifteen
+fresh reports passed acceptance. Production adoption remains pending.
 
 ## Artifact
 
@@ -61,14 +61,16 @@ through the existing supported hooks; explicit native opt-out is retained.
   sequencing reports and one additional Parse report. Legacy and rc4 engines
   rendered the same inputs. Required sections, source metrics and metadata passed
   content gates. Intentional numerical/identity corrections are recorded explicitly.
-- **20,594 common exported cells** agreed with the legacy reports. Independent
+- The earlier sequencing/Parse comparisons verified **20,594 common exported
+  cells** against the legacy reports. Independent
   checks verified 1,170 plotted sample totals, 378 unknown-barcode plotted values,
   and 69 Parse metrics across three library summaries. All checked BCL Convert
   sample/lane counts now agree with their input rows.
 - Modern BCL Convert quality means were checked independently as weighted
   averages. Differences from the legacy summed averages are corrections.
   InterOp unit changes retain their scale and labels. Cosmetic numeric formatting
-  and missing-value representation are not treated as content loss.
+  and equivalent null/empty export representations are classified separately
+  from missing measurements. Unavailable sample assignments remain unavailable.
 - Eleven reports passed offline browser checks, including PCA dataset tabs,
   embedded ordination figures and the corrected counts-per-lane tab. There were
   no JavaScript/console errors, unexpected network requests or failed images.
@@ -94,19 +96,41 @@ Workflow validation passed 20 focused checks on the rc4 digest.
 The server bootstrap and GPU checks passed, and Apptainer confirmed MultiQC 1.35
 with GCF 0.1.0rc4 from the pinned image.
 
-The earlier rc2 scientific/operational run passed all seven fixtures on their
-first attempt. Subsequent project comparisons exposed the FastQC mate loss,
-which blocks rc2 functional acceptance and is corrected in rc4. The final fresh
-rc4 seven-fixture run is now in progress.
+The final fresh rc4 run passed all **seven fixtures on attempt 1**. Processing
+through finalization took **52m44s**. Small RNA, RNA-seq, WGS, metagenome,
+two-project default reporting, Parse and current 10x all completed. Scientific
+checks, archives, FASTQ/archive checksums, provenance snapshots, native BCL read
+oracles, Parse acceptance, single-cell matrices and state-preserving restart
+checks passed. Configured test SMTP acceptance was verified; mailbox receipt was
+not independently observed. The test daemon stopped after acceptance.
 
-It covers small RNA, RNA-seq, WGS, metagenome,
-multi-project default reporting, Parse and current 10x. It must complete
-scientific processing, reporting, archives, checksums and notification acceptance.
-Additional checks compare project report content against source logs and the
-legacy engine using the same inputs. Results will be recorded here when complete.
+All **eight fresh project reports** passed matched-input legacy/rc4 rendering,
+source checks and offline browser checks. Server rc4 reports and local rc4
+replays have equal raw exports, General Statistics, section sets and serialized
+plot models. Legacy differences are classified against independent inputs.
+Shared legacy comparisons cover 865 export cells, 304 displayed table cells and
+33,667 plotted values. Source checks include all 35 FastQC archives, 630
+basic/status fields, 1,197 FastQC plot values and 171 overrepresentation values;
+69 Parse metrics; 40 Cell Ranger metrics; nine STAR libraries; 824 Unitas plot
+values; 2,215 taxonomy counts and 1,006 taxonomy plot values; and 84 WGS
+coverage/fraction values. Browsers rendered **87 native charts, 24 tables,
+three PCA views and five embedded ordination views** without errors.
+
+All **seven fresh sequencing reports** passed source/content checks, module
+selection, wrapper mapping and committed-source provenance checks. Independent
+comparisons cover 4,446 bcl2fastq export/chart count values and 175 InterOp summary
+values, plus native BCL Convert sample/lane data and charts. All 24 expected
+samples are represented; the two unavailable WGS assignments remain unavailable.
+Zero-assignment cases are covered synthetically; these fresh fixtures contain
+no expected zero-count sample.
+
+The earlier rc2 scientific/operational run also passed seven fixtures, but later
+project comparisons exposed its FastQC mate loss. That blocked rc2 functional
+acceptance and prompted the corrected rc4 build and fresh complete run.
 
 QIIME2 and legacy mkfastq are deprecated for this migration's acceptance scope;
-STARsolo has low priority. These checks do not establish coverage of all optional
+STARsolo has low priority. The five optional fixtures were not exercised in
+this integration. These checks do not establish coverage of all optional
 scientific routes or all historical producer versions. Saved full-run Parse HTML
 and reduced Parse CSVs from different datasets are not treated as matched oracles.
 Production promotion, production deployment and mailbox receipt remain separate from
@@ -125,6 +149,14 @@ Taxonomy plots use root-clade plus unclassified fragments for the total. The
 legacy direct-assignment sum can undercount redistributed Bracken reports,
 affecting Other and derived percentages. Taxon counts remain tied to source
 reports; equally scored taxa can change which five appear in a top-five view.
+The native report omits the redundant Root tab while retaining root-clade counts
+in exported data. Where enabled, the Unclassified view represents classified
+root counts as Other; stacked totals still include classified and unclassified
+fragments. Fastp's filtered-read plot adds Low Complexity when supplied by the
+producer; absent metrics remain unavailable.
+FastQC curves use the native range-start x position for binned measurements;
+the legacy template used the range midpoint. The underlying bin values agree
+with the source archives.
 
 The recommended destination is upstream MultiQC plus this independently
 versioned extension. Once the coordinated PRs and test evidence are reviewed,
@@ -134,5 +166,5 @@ these rendering/export/source checks for each engine upgrade, and add synthetic
 regressions for new producer formats. Generally useful fixes can be submitted
 upstream independently; their acceptance need not delay GCF's own releases.
 
-The current checkpoint leaves the PRs open. Merge review, stable release,
+The tested replacement is ready for coordinated PR review. The PRs remain open. Merge review, stable release,
 production promotion and production deployment remain explicit next steps.

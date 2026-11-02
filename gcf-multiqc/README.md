@@ -10,8 +10,12 @@ The proposed suite adoption selects that digest through the existing
 either BFQ or project reporting to it. See [the adoption handoff](ADOPTION.md)
 and [the rc4 validation record](VALIDATION-RC4.md).
 
+Fresh seven-fixture integration acceptance passed, including all eight project
+and seven sequencing reports. See the validation record for source checks,
+classified legacy differences and coverage bounds.
+
 The rc4 candidate preserves literal General Statistics text and sums BCL Convert
-sample/lane metrics across multiple index rows. Both defects were found during
+sample/lane metrics across multiple index rows. These defects were found during
 functional comparisons with copied reference inputs. The candidate also retains
 both FastQC paired mates and uses consistent lane labels across combined runs.
 

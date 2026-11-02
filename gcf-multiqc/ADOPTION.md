@@ -2,7 +2,7 @@
 
 This change set replaces the legacy GCF MultiQC container in an isolated test
 installation. The linked PRs remain open for review. The rc4 image is published
-and server integration acceptance is underway; production promotion and
+and fresh server integration acceptance passed; production promotion and
 deployment remain separate decisions. See [the current validation record](VALIDATION-RC4.md).
 
 ## Components and ownership
@@ -23,7 +23,7 @@ change or second BFQ-owned image version setting is required.
 
 The 2 November 2026 rc4 acceptance uses these source revisions:
 
-| Component | Base | Reviewed head / baseline |
+| Component | Base | Tested runtime revision / baseline |
 | --- | --- | --- |
 | BFQ | `2b1fbc51f625c128e9aa5a083f1c5fe1abb06068` (`bfq-dev`) | `04d3e40dd573477f05c62ecfd9881aafb8797d42` |
 | Workflows | `26fafe406d856b49beead1ecce251cc943e56e63` (`bfq-dev`) | `bdee0b964135dee60365a82c825ac0f901df05e6` |
@@ -53,7 +53,8 @@ FastQC inputs now retain their separate identities and source values.
 
 The earlier rc2 scientific/operational run passed all seven fixtures; deeper
 project comparisons then identified FastQC mate loss. The final rc4 seven-fixture
-run is now in progress for complete acceptance.
+run passed on attempt 1 in 52m44s, including scientific/operational checks and
+all eight project plus seven sequencing content gates.
 These results establish the tested reporting cases, not every producer version
 or scientific route. The earlier rc1 validation remains a historical receipt.
 
