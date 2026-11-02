@@ -1,8 +1,9 @@
 # MultiQC suite adoption handoff
 
-This change set prepares reviewable PRs for replacing the legacy GCF MultiQC
-container. It does not merge the PRs, build new images, run server integration,
-change an operational installation or deploy the replacement.
+This change set replaces the legacy GCF MultiQC container in an isolated test
+installation. The linked PRs remain open for review. The rc2 image is published
+and server integration acceptance is underway; production promotion and
+deployment remain separate decisions. See [the current validation record](VALIDATION-RC2.md).
 
 ## Components and ownership
 
@@ -20,14 +21,14 @@ change or second BFQ-owned image version setting is required.
 
 ## Reviewed source and local checks
 
-The 2 November 2026 implementation checkpoint uses these source revisions:
+The 2 November 2026 rc2 acceptance uses these source revisions:
 
 | Component | Base | Reviewed head / baseline |
 | --- | --- | --- |
-| BFQ | `2b1fbc51f625c128e9aa5a083f1c5fe1abb06068` (`bfq-dev`) | `38a6ef921520d679a8e3aa3207e8aca916152756` |
-| Workflows | `26fafe406d856b49beead1ecce251cc943e56e63` (`bfq-dev`) | `2f682991267929c828dcb4c77bb56ed45559538a` |
-| Plugin | `99958aafa9bb7a49be5d034d33a05ffa7108c6c6` (`main`) | `2b3b0bb74655f76857a0ef2e0413df0a0c7f86a7` |
-| Image recipe | `28e66251ec003b0f0d65526d2fa6b8cc03ed92b3` (`master`) | Existing PR 1; recipe unchanged from `87a633d25f6cca6dddae9ddae37942aead69c16c` |
+| BFQ | `2b1fbc51f625c128e9aa5a083f1c5fe1abb06068` (`bfq-dev`) | `119b054f64d748d5f9f37dd6a907edd4e7598c70` |
+| Workflows | `26fafe406d856b49beead1ecce251cc943e56e63` (`bfq-dev`) | `565b8029fd4014207fab06504257ede37fa7ad65` |
+| Plugin | `99958aafa9bb7a49be5d034d33a05ffa7108c6c6` (`main`) | `df0aef569b77bd8f310c4e5dba77d2d65e03254f` |
+| Image recipe | `28e66251ec003b0f0d65526d2fa6b8cc03ed92b3` (`master`) | `c24321c84c27d8bdf610f9ac0e4d5ed275721816` (rc2 recipe) |
 | gcf-tools | No change | `1daa9822084bc3a3df4b94102c13c6352fa57ecd`, the normal BFQ development baseline |
 
 BFQ's `check fast` and `check all` passed all 1,060 tests. The full gate also
@@ -40,14 +41,14 @@ passes; native demultiplexer selection and zero/unavailable counts are preserved
 Workflow validation passed 20 focused tests and seven normal profile reporting
 dry-runs. The tests cover command/output contracts and explicit project overrides.
 They use Snakemake 8.1.1, PyYAML 6.0 and pulp 2.7.0.
-Plugin validation passed 107 synthetic tests with MultiQC 1.35 and Plotly 6.0.1,
-plus lint, formatting and dependency checks. GitHub CI passed for the workflow
-and plugin heads above. Private reference reports were not rendered.
+Plugin validation passed 113 synthetic tests with MultiQC 1.35 and Plotly 6.0.1,
+plus lint, formatting and dependency checks. All 113 tests also passed inside
+the built image. Eight copied-input report comparisons and content gates passed,
+including browser checks and independent source-metric assertions.
 
-These results support the source-review checkpoint. They do not establish
-operational numerical/visual parity or server/container behavior. No image was
-built or published during this adoption phase; the earlier published-image
-validation remains a separate historical receipt.
+The isolated seven-fixture server run is the remaining acceptance step.
+These results establish the tested reporting cases, not every producer version
+or scientific route. The earlier rc1 validation remains a historical receipt.
 
 ## Exact reporting artifact
 
@@ -55,19 +56,19 @@ The proposed workflow mapping is:
 
 ```yaml
 docker:
-  multiqc: gcfntnu/gcf-multiqc@sha256:5b69b8bdb2b8d055b190386110c55dcddc99e1e30b6ee846477a703b5c8dd39d
+  multiqc: gcfntnu/gcf-multiqc@sha256:8c53227c570280641c51738a8e7308ae11cddd00a1e0cd1092e5cef7d92cc9e9
 ```
 
-That digest was published as `1.35-gcf0.1.0-rc1` for Linux amd64. Its installed
-plugin source is `54877b7335635005af113a1a0cd10a9f7fbdfe12`; engine version is
-1.35 and extension version is 0.1.0rc1. Later test/documentation changes in the
-plugin PR do not change that installed runtime. The historical image validation
-is recorded in [VALIDATION.md](VALIDATION.md).
+That digest was published as `1.35-gcf0.1.0-rc2` for Linux amd64. Its installed
+plugin source is `df0aef569b77bd8f310c4e5dba77d2d65e03254f`; engine version is
+1.35 and extension version is 0.1.0rc2. Later test/documentation changes in the
+plugin PR do not change that installed runtime. The rc2 image validation is recorded in [VALIDATION-RC2.md](VALIDATION-RC2.md);
+[VALIDATION.md](VALIDATION.md) records the earlier rc1 artifact.
 
 The proposed mapping deliberately selects the existing digest. A local rebuild
 from this recipe is a separate artifact and must be identified separately;
 the Debian package repositories are not frozen. A newly accepted build requires
-its own tag/digest and a reviewed workflow mapping update. Do not overwrite rc1
+its own tag/digest and a reviewed workflow mapping update. Do not overwrite published release tags
 or make the suite follow `latest`.
 
 ## Which configuration controls each invocation

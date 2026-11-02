@@ -1,13 +1,18 @@
 # GCF MultiQC candidate image
 
-Image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc1`** (Linux amd64).
+Image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc2`** (Linux amd64).
 
 This replaces the reporting engine with upstream MultiQC 1.35 and a separate
-`gcf-multiqc==0.1.0rc1` extension. The published candidate is identified by
-`sha256:5b69b8bdb2b8d055b190386110c55dcddc99e1e30b6ee846477a703b5c8dd39d`.
+`gcf-multiqc==0.1.0rc2` extension. The published candidate is identified by
+`sha256:8c53227c570280641c51738a8e7308ae11cddd00a1e0cd1092e5cef7d92cc9e9`.
 The proposed suite adoption selects that digest through the existing
 `gcf-workflows/docker.config` mapping; publishing an image alone does not switch
-either BFQ or project reporting to it. See [the adoption handoff](ADOPTION.md).
+either BFQ or project reporting to it. See [the adoption handoff](ADOPTION.md)
+and [the rc2 validation record](VALIDATION-RC2.md).
+
+The rc2 candidate preserves literal General Statistics text and sums BCL Convert
+sample/lane metrics across multiple index rows. Both defects were found during
+functional comparisons with copied reference inputs.
 
 The Dockerfile pins the Python base digest, plugin commit and source archive
 checksum. `requirements.lock` pins runtime and build-backend versions with
@@ -50,7 +55,7 @@ Publication is a later deliberate step. Choose a new release tag, keep package
 and image version labels consistent, and record the registry digest before
 updating the workflow mapping. The existing `build_tag_push_gcfntnu.sh` convention
 builds the supplied tag plus `latest` and immediately pushes them; do not use it
-for a build-only review. Do not overwrite the published rc1 tag. `latest` is not
+for a build-only review. Do not overwrite published release tags. `latest` is not
 the suite's proposed selection, and the old `gcfntnu/multiqc` image remains
 available for rollback.
 
@@ -62,7 +67,7 @@ Use copied inputs and a new output directory. For example:
 mkdir -p reports
 docker run --rm --network none --user "$(id -u):$(id -g)" \
   -v "$PWD/copied-logs:/inputs:ro" -v "$PWD/reports:/output" \
-  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc1 \
+  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc2 \
   multiqc --strict --no-version-check --no-ai --no-megaqc-upload \
   -m fastp -m fastqc_rnaseq -m custom_content -o /output /inputs
 ```
