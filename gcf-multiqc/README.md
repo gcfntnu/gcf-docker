@@ -1,18 +1,19 @@
 # GCF MultiQC candidate image
 
-Image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc2`** (Linux amd64).
+Image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4`** (Linux amd64).
 
 This replaces the reporting engine with upstream MultiQC 1.35 and a separate
-`gcf-multiqc==0.1.0rc2` extension. The published candidate is identified by
-`sha256:8c53227c570280641c51738a8e7308ae11cddd00a1e0cd1092e5cef7d92cc9e9`.
+`gcf-multiqc==0.1.0rc4` extension. The published candidate is identified by
+`sha256:2c356684c03d24c11e63be5724d4f107c253eccd8be98c236952bd3df5435878`.
 The proposed suite adoption selects that digest through the existing
 `gcf-workflows/docker.config` mapping; publishing an image alone does not switch
 either BFQ or project reporting to it. See [the adoption handoff](ADOPTION.md)
-and [the rc2 validation record](VALIDATION-RC2.md).
+and [the rc4 validation record](VALIDATION-RC4.md).
 
-The rc2 candidate preserves literal General Statistics text and sums BCL Convert
+The rc4 candidate preserves literal General Statistics text and sums BCL Convert
 sample/lane metrics across multiple index rows. Both defects were found during
-functional comparisons with copied reference inputs.
+functional comparisons with copied reference inputs. The candidate also retains
+both FastQC paired mates and uses consistent lane labels across combined runs.
 
 The Dockerfile pins the Python base digest, plugin commit and source archive
 checksum. `requirements.lock` pins runtime and build-backend versions with
@@ -34,7 +35,7 @@ The allowlist in `.dockerignore` excludes local logs, outputs and private data.
 
 ## Build for evaluation
 
-These commands are for the later evaluation step. From this directory, use a
+To evaluate another local rebuild, use a
 new local tag so rebuilding cannot overwrite the published candidate:
 
 ```bash
@@ -67,7 +68,7 @@ Use copied inputs and a new output directory. For example:
 mkdir -p reports
 docker run --rm --network none --user "$(id -u):$(id -g)" \
   -v "$PWD/copied-logs:/inputs:ro" -v "$PWD/reports:/output" \
-  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc2 \
+  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4 \
   multiqc --strict --no-version-check --no-ai --no-megaqc-upload \
   -m fastp -m fastqc_rnaseq -m custom_content -o /output /inputs
 ```
@@ -76,7 +77,8 @@ The plugin repository holds synthetic tests for the ported modules, all seven
 historical workflow report profiles, native sequencing-QC parsers and flat-image
 export. Run those tests against the built image's installed package, using an
 ephemeral test dependency directory, mounted read-only fixtures, no network and
-an invocation-owned output directory. Do not copy the test corpus into the image.
+an invocation-owned output directory. A read-only container also needs a private
+writable `/tmp` mount for the bundled flat-image renderer. Do not copy the test corpus into the image.
 
 The active acceptance set includes Parse and the current report families.
 QIIME2 and legacy Cell Ranger mkfastq are deprecated for acceptance; STARsolo has
