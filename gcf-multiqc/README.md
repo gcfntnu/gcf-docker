@@ -3,8 +3,11 @@
 Image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc1`** (Linux amd64).
 
 This replaces the reporting engine with upstream MultiQC 1.35 and a separate
-`gcf-multiqc==0.1.0rc1` extension. It is a candidate for later GCF acceptance;
-publishing it does not change the image selected by the suite.
+`gcf-multiqc==0.1.0rc1` extension. The published candidate is identified by
+`sha256:5b69b8bdb2b8d055b190386110c55dcddc99e1e30b6ee846477a703b5c8dd39d`.
+The proposed suite adoption selects that digest through the existing
+`gcf-workflows/docker.config` mapping; publishing an image alone does not switch
+either BFQ or project reporting to it. See [the adoption handoff](ADOPTION.md).
 
 The Dockerfile pins the Python base digest, plugin commit and source archive
 checksum. `requirements.lock` pins runtime and build-backend versions with
@@ -24,25 +27,32 @@ The command `multiqc` is on PATH, the existing logo remains at
 suite's Apptainer wrapper. This directory contains only public build inputs.
 The allowlist in `.dockerignore` excludes local logs, outputs and private data.
 
-## Build and publish
+## Build for evaluation
 
-From this directory:
+These commands are for the later evaluation step. From this directory, use a
+new local tag so rebuilding cannot overwrite the published candidate:
 
 ```bash
 docker build --platform linux/amd64 \
-  -t gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc1 \
-  -t gcfntnu/gcf-multiqc:latest .
-docker run --rm --network none gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc1 multiqc --version
-# Validate reports before publishing; see below.
-docker push gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc1
-docker push gcfntnu/gcf-multiqc:latest
+  -t gcf-multiqc:review-1 .
+docker run --rm --network none gcf-multiqc:review-1 multiqc --version
+docker image inspect gcf-multiqc:review-1 \
+  --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
-This follows `build_tag_push_gcfntnu.sh` naming/tagging behavior, while pushing
-only the two tags produced by this build. `latest` denotes the latest candidate
-in this new repository until a stable release is accepted; use the explicit
-version tag or digest for reproducible evaluation. No legacy `gcfntnu/multiqc`
-tag is changed.
+The already-published artifact can be evaluated without rebuilding. A new local
+build is a separate artifact: Debian package repositories are not frozen, so
+it need not reproduce the published digest. Record which artifact was tested.
+The workflow PR continues to select the published digest until a separately
+reviewed update selects another accepted image.
+
+Publication is a later deliberate step. Choose a new release tag, keep package
+and image version labels consistent, and record the registry digest before
+updating the workflow mapping. The existing `build_tag_push_gcfntnu.sh` convention
+builds the supplied tag plus `latest` and immediately pushes them; do not use it
+for a build-only review. Do not overwrite the published rc1 tag. `latest` is not
+the suite's proposed selection, and the old `gcfntnu/multiqc` image remains
+available for rollback.
 
 ## Reporting-only validation
 
@@ -57,13 +67,20 @@ docker run --rm --network none --user "$(id -u):$(id -g)" \
   -m fastp -m fastqc_rnaseq -m custom_content -o /output /inputs
 ```
 
-The plugin repository holds synthetic tests for every ported module, all seven
-current workflow report profiles, native sequencing-QC parsers and flat-image
+The plugin repository holds synthetic tests for the ported modules, all seven
+historical workflow report profiles, native sequencing-QC parsers and flat-image
 export. Run those tests against the built image's installed package, using an
 ephemeral test dependency directory, mounted read-only fixtures, no network and
 an invocation-owned output directory. Do not copy the test corpus into the image.
 
+The active acceptance set includes Parse and the current report families.
+QIIME2 and legacy Cell Ranger mkfastq are deprecated for acceptance; STARsolo has
+low priority. Their existing adapters remain installed for compatibility.
+
 No scientific workflow, production configuration or GCF-suite integration test
-belongs to this build step. Later acceptance must compare copied real inputs,
-verify the server's Apptainer wrapper and separately review the workflow-owned
-image-reference change. See the plugin's migration checkpoint for that plan.
+belongs to the image build step. Later acceptance must compare the same copied
+inputs and configuration with both engines, verify the server's Apptainer
+wrapper, and review the suite adoption before merging or deployment. Existing
+reports and reduced input examples from different datasets are not a matched
+comparison pair. Keep private inputs, reports and evidence outside Git and image
+build contexts.
