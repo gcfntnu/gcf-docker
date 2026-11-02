@@ -10,13 +10,44 @@ change an operational installation or deploy the replacement.
 | --- | --- | --- |
 | Reporting engine and extensions | [gcf-multiqc PR 1](https://github.com/gcfntnu/gcf-multiqc/pull/1), [issue 2](https://github.com/gcfntnu/gcf-multiqc/issues/2) | Unmodified MultiQC 1.35 plus GCF compatibility adapters and synthetic rendering checks. |
 | Reporting image | [gcf-docker PR 1](https://github.com/gcfntnu/gcf-docker/pull/1), [issue 2](https://github.com/gcfntnu/gcf-docker/issues/2) | Pinned image recipe, dependencies, logo and command convention. |
-| Workflow selection | [gcf-workflows issue 221](https://github.com/gcfntnu/gcf-workflows/issues/221) | Select the candidate through `docker.config`, preserving report commands and project overrides. |
-| BFQ reporting boundary | [gcf-bfq issue 173](https://github.com/gcfntnu/gcf-bfq/issues/173) | Installed wrapper/configuration coverage, compatible sequencing-report configuration and later build/evaluation instructions. |
+| Workflow selection | [gcf-workflows PR 222](https://github.com/gcfntnu/gcf-workflows/pull/222), [issue 221](https://github.com/gcfntnu/gcf-workflows/issues/221) | Select the candidate through `docker.config`, preserving report commands and project overrides. |
+| BFQ reporting boundary | [gcf-bfq PR 174](https://github.com/gcfntnu/gcf-bfq/pull/174), [issue 173](https://github.com/gcfntnu/gcf-bfq/issues/173) | Installed wrapper/configuration coverage, compatible sequencing-report configuration and later build/evaluation instructions. |
 
 The workflow and BFQ issue branches start at their current `bfq-dev` branches
 and target `bfq-dev`. The extension and image work continue their existing PRs;
 their published artifact is already available for evaluation. No `gcf-tools`
 change or second BFQ-owned image version setting is required.
+
+## Reviewed source and local checks
+
+The 2 November 2026 implementation checkpoint uses these source revisions:
+
+| Component | Base | Reviewed head / baseline |
+| --- | --- | --- |
+| BFQ | `2b1fbc51f625c128e9aa5a083f1c5fe1abb06068` (`bfq-dev`) | `38a6ef921520d679a8e3aa3207e8aca916152756` |
+| Workflows | `26fafe406d856b49beead1ecce251cc943e56e63` (`bfq-dev`) | `2f682991267929c828dcb4c77bb56ed45559538a` |
+| Plugin | `99958aafa9bb7a49be5d034d33a05ffa7108c6c6` (`main`) | `2b3b0bb74655f76857a0ef2e0413df0a0c7f86a7` |
+| Image recipe | `28e66251ec003b0f0d65526d2fa6b8cc03ed92b3` (`master`) | Existing PR 1; recipe unchanged from `87a633d25f6cca6dddae9ddae37942aead69c16c` |
+| gcf-tools | No change | `1daa9822084bc3a3df4b94102c13c6352fa57ecd`, the normal BFQ development baseline |
+
+BFQ's `check fast` and `check all` passed all 1,060 tests. The full gate also
+passed seven guarded synthetic scenarios, offline wheel packaging/install and
+installed-command checks. MultiQC wrapper checks use fake Apptainer, including
+SMTP protection, image authority, argument forwarding and failure propagation.
+The small BFQ runtime fix selects custom content once for separate conversion
+passes; native demultiplexer selection and zero/unavailable counts are preserved.
+
+Workflow validation passed 20 focused tests and seven normal profile reporting
+dry-runs. The tests cover command/output contracts and explicit project overrides.
+They use Snakemake 8.1.1, PyYAML 6.0 and pulp 2.7.0.
+Plugin validation passed 107 synthetic tests with MultiQC 1.35 and Plotly 6.0.1,
+plus lint, formatting and dependency checks. GitHub CI passed for the workflow
+and plugin heads above. Private reference reports were not rendered.
+
+These results support the source-review checkpoint. They do not establish
+operational numerical/visual parity or server/container behavior. No image was
+built or published during this adoption phase; the earlier published-image
+validation remains a separate historical receipt.
 
 ## Exact reporting artifact
 
