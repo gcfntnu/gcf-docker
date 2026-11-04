@@ -8,9 +8,10 @@ FROM gcfntnu/build-base:22.04
 #       docker create --name u gcfntnu/unitas:1.8.0 && docker cp u:/opt/unitas/unitas_1.8.0.pl files/ && docker rm u
 #   files/seqmap.exe       SeqMap 1.0.13 x86-64 Linux build (needs glibc >= 2.29)
 #
-# The image is offline-only: reference downloads (-refdump, -latest_ref, incomplete refdump
-# folders) and -riborase exit with an error. Provide UNITAS_refdump_<species> in the working
-# directory. seqmap.exe is picked up from PATH.
+# Annotation runs are offline: provide UNITAS_refdump_<species> in the working directory;
+# seqmap.exe is picked up from PATH. Reference downloads and -riborase exit with an error.
+# -refdump only works with -mirror DIR (a local copy of the old server layout); use
+# unitas_build_refdump.sh to build reference dumps from Ensembl, GtRNAdb and miRBase.
 
 ENV UNITAS_VERSION=1.8.0
 ENV UNITAS_BUILD=1.8.0-1
@@ -42,7 +43,7 @@ RUN cpanm LWP::Simple \
     Scalar::Util
 
 WORKDIR /opt/unitas
-COPY files/unitas_${UNITAS_VERSION}.pl files/seqmap.exe unitas-${UNITAS_BUILD}.patch ./
+COPY files/unitas_${UNITAS_VERSION}.pl files/seqmap.exe unitas-${UNITAS_BUILD}.patch unitas_build_refdump.sh ./
 RUN dos2unix unitas_${UNITAS_VERSION}.pl
 # Legacy header-length patches (already present in the script from gcfntnu/unitas:1.8.0; no-ops then)
 RUN sed -i 's/head>30/head>1000/; s/head,0,27/head,0,1000/' unitas_${UNITAS_VERSION}.pl
