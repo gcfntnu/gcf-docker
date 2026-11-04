@@ -1,0 +1,6 @@
+# Only the files the Dockerfile copies; keeps old test runs and scripts out of the context
+*
+!files/unitas_1.8.0.pl
+!files/seqmap.exe
+!unitas-1.8.0-1.patch
+!unitas_build_refdump.sh

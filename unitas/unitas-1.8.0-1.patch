@@ -1,0 +1,647 @@
+--- a/unitas_1.8.0.pl
++++ b/unitas_1.8.0.pl
+@@ -36,11 +36,11 @@
+  exit
+ 
+ ";
+-	exit;
++	exit 1;
+ 	}
+ 
+ $|=1;
+-$unitas_version="1.8.0";
++$unitas_version="1.8.0-1";
+ $last_modified="21. December 2022"; # bug fix in finding best matches
+ $t0=time;
+ 
+@@ -369,7 +369,17 @@
+ %miRtails=('A'=>1,'T'=>1,'G'=>1,'C'=>1);
+ 
+ # Set user agent
+-$useragent = LWP::UserAgent->new(ssl_opts => { verify_hostname => 0 });
++$useragent = LWP::UserAgent->new(timeout => 15); # gcf 1.8.0-1: verify TLS, do not hang on dead hosts
++# gcf mirror: serve smallRNAgroup URLs from a local directory (-mirror DIR)
++$useragent->add_handler(request_prepare => sub
++	{
++	my($req)=@_;
++	if(length$mirror&&$req->uri=~m{^https?://(?:www\.)?smallrnagroup\.uni-mainz\.de/(.*)$}i)
++		{
++		$req->uri("file://$mirror/$1");
++		}
++	return;
++	});
+ 
+ # collect and check command line arguments
+ GetOptions
+@@ -418,21 +428,22 @@
+ 	"diffexpr"=>\$diffexpr, # do differential expression analysis and quit
+ 	"diffexpr_t"=>\$standard_Ttest, # choose test
+ 	"diffexpr_p=f"=>\$diff_expr_p, # critical p value
+-	"diffexpr_out"=>\$diffexpr_outfile, # name of the output file for differentially expressed RNAs
++	"diffexpr_out=s"=>\$diffexpr_outfile, # name of the output file for differentially expressed RNAs
+ 	"diffexpr_acorrection=i"=>\$alpha_correction, # 0 = no correction / 1 = Bonferroni-Holm / 2 = Bonferroni
+ 	"diffexpr_estdev=f"=>\$estimated_deviation, # estimated deviation (+ and -) when using only one replicate
+ 	"diffexpr_nostrays"=>\$diffexpr_nostrays, # only consider sequences that are present in all replicates
+ 	"g1=s"=>\@diffex_g1, # unitas results folders for group 1
+ 	"g2=s"=>\@diffex_g2, # unitas results  folders for group 2
+ 	"latest_ref"=>\$latestref, # force program to download latest reference sequences
+-	"refdump"=>\$refdump_and_quit, # download reference sequences and quit
++	"refdump"=>\$refdump_and_quit,
++	"mirror=s"=>\$mirror, # gcf: local mirror of the smallRNAgroup server # download reference sequences and quit
+ 	"dump_prefix=s"=>\$dump_folder_prefix, # prefix for dump folders
+ 	"output_prefix=s"=>\$outfile_prefix, # prefix for output files
+ 	"keep_temp"=>\$keep_temp, # do not remove temporary files from data dump folder
+ 	"skip_mapping"=>\$skip_mapping, # skip all mapping steps
+ 	"skip_miR"=>\$skip_miR, # skip search for sequences derived from known piRNA producing loci
+ 	"skip_cDNA"=>\$skip_cDNA, # skip search for sequences derived from annotated mRNA transcripts
+-	"skip_ncDNA"=>\$skip_ncRNA, # skip search for ncRNA fragments other than miRNA
++	"skip_ncRNA|skip_ncDNA"=>\$skip_ncRNA, # skip search for ncRNA fragments other than miRNA
+ 	"skip_piR"=>\$skip_piR, # skip search for sequences derived from known piRNA producing loci
+ 	"skip_dust"=>\$skip_dust, # skip low complexitiy filter
+ 	"dust_limit=f"=>\$dust_limit, # threshold for dusty fraction of a sequence
+@@ -465,7 +476,7 @@
+ 	if($alpha_correction!~/^[012]$/)
+ 		{
+ 		print"\nERROR! Allowed values for alpha correction are 0 (no correction), 1 (Bonferroni-Holm) and 2 (Bonferroni).\n\n";
+-		exit;
++		exit 1;
+ 		}
+ 	open(DIFFEX_OUT_1,">${diffexpr_outfile}.up1")||die print"\nERROR! Unable to open output file ${diffexpr_outfile}.up1.\n$!\n\n";
+ 	open(DIFFEX_OUT_2,">${diffexpr_outfile}.up2")||die print"\nERROR! Unable to open output file ${diffexpr_outfile}.up2.\n$!\n\n";
+@@ -485,14 +496,14 @@
+ 	if(!$refdump_and_quit&&!$print_supported_species) # continue if the user only wants to safe reference sequences or print supported species
+ 		{
+ 		print"\nError. No input files specified. Use the option -input [file_or_folder.name] to specify input files.\n\n";
+-		exit;
++		exit 1;
+ 		}
+ 	}
+ 
+ # Check for latest unitas version
+ $request = HTTP::Request->new(GET => 'https://www.smallrnagroup.uni-mainz.de/software/current_versions');
+ $response = $useragent->request($request);
+-$current_versions = $response->content;
++$current_versions = $response->is_success ? $response->content : "";
+ if(length$current_versions>0)
+ 	{
+ 	@current_versions=split("\t",$current_versions);
+@@ -544,7 +555,7 @@
+ if($quick_annotation&&$slow_annotation)
+ 	{
+ 	print"\nError. Do not use the options -quick and -slow at the same time.\n\n";
+-	exit;
++	exit 1;
+ 	}
+ elsif($quick_annotation)
+ 	{
+@@ -574,37 +585,37 @@
+ if($max_miRtail_length>5)
+ 	{
+ 	print"\nError. Maximum number of non-template 3' nucleotides =5.\n\n";
+-	exit;
++	exit 1;
+ 	}
+ if($max_miRtail_length+$intmod_miR>5)
+ 	{
+ 	print"\nError. Maximum sum for non-template 3' nucleotides and internal modifications must not exceed 5.\n\n";
+-	exit;
++	exit 1;
+ 	}
+ if($seqmap_max_mm>5)
+ 	{
+ 	print"\nError. Maximum number of mismatches for ncRNA annotation =5.\n\n";
+-	exit;
++	exit 1;
+ 	}
+ if($seqmap_max_insdel>3)
+ 	{
+ 	print"\nError. Maximum number of indels for ncRNA annotation =3.\n\n";
+-	exit;
++	exit 1;
+ 	}
+ if($dust_limit<0.25||$dust_limit>1)
+ 	{
+ 	print"\nError. -dust_limit must be >=0.25 and <=1.";
+-	exit;
++	exit 1;
+ 	}
+ if($dust_min<1)
+ 	{
+ 	print"\nError. -dust_min must be >0";
+-	exit;
++	exit 1;
+ 	}
+ if($dust_min>$dust_max)
+ 	{
+ 	print"\nError. -dust_min must not be larger than -dust_max";
+-	exit;
++	exit 1;
+ 	}
+ 
+ $total_number_of_supported_species=keys%species;
+@@ -646,7 +657,7 @@
+ 				else
+ 					{
+ 					print"\nError. Do not use files with identical names (from different directories): /$_.\n\n";
+-					exit;
++					exit 1;
+ 					}
+ 				push(@files_only_input,"$file/$_");
+ 				}
+@@ -669,7 +680,7 @@
+ 		else
+ 			{
+ 			print"\nError. Do not use files with identical names (from different directories): /$parsed_filename.\n\n";
+-			exit;
++			exit 1;
+ 			}
+ 		}
+ 	}
+@@ -799,7 +810,7 @@
+ 		print"\nNo fuzzy match to any supported species found.";
+ 		}
+ 	print"\n\nYou can start unitas with the option -supp_spec to print a complete\nlist of supported species.\n\n";
+-	exit;
++	exit 1;
+ 	}
+ 
+ if(!$silent){print"
+@@ -858,9 +869,14 @@
+ 		{
+ 		mkdir("UNITAS_refdump_$species")||die print"\nError. Unable to create dump folder for reference sequences.\n$!\n\n";
+ 		}
++	if(!length$mirror)
++		{
++		print"\nERROR! -refdump needs -mirror DIR: the smallRNAgroup download server is gone.\nProvide a complete UNITAS_refdump_$species folder instead.\n\n";
++		exit 1;
++		}
+ 	$download_reference=1;
+ 	load_reference_sequences();
+-	exit;
++	exit 0;
+ 	}
+ 
+ # download reference sequences to reference dump folder if option latestref is used, this folder does not exist or does not contain all required files
+@@ -868,7 +884,7 @@
+ 	{
+ 	if(@user_refseq==0)
+ 		{
+-		print"\nError: Use -species x only together with -refseq [your_reference.file]\n\n";exit;
++		print"\nError: Use -species x only together with -refseq [your_reference.file]\n\n";exit 1;
+ 		}
+ 	$skip_miR=1;
+ 	$skip_cDNA=1;
+@@ -919,6 +935,19 @@
+ 		}
+ 	}
+ 
++# gcf 1.8.0-1: reference sequences and the NCBI rRNA collection were served by the defunct
++# smallRNAgroup server; fail clearly instead of writing error pages as reference files.
++if($download_reference==1&&$species{$species}ne'undefined'&&!length$mirror)
++	{
++	print"\nERROR! UNITAS_refdump_$species is missing or incomplete, and reference downloads are not\nsupported in unitas 1.8.0-1 (the smallRNAgroup server is gone). Provide a complete\nUNITAS_refdump_$species folder in the working directory.\n\n";
++	exit 1;
++	}
++if($riborase&&!-e"NCBI_rRNA_collection.fasta")
++	{
++	print"\nERROR! -riborase is not supported in unitas 1.8.0-1: NCBI_rRNA_collection.fasta was only\navailable from the smallRNAgroup server, which is gone.\n\n";
++	exit 1;
++	}
++
+ # download NCBI rRNA sequence collection (if it does not exist in the current working directory)
+ if($riborase&&!-e"NCBI_rRNA_collection.fasta")
+ 	{
+@@ -954,11 +983,30 @@
+ 		}
+ 	}
+ 
++# gcf 1.8.0-1: use seqmap.exe from PATH when the working directory has none; SeqMap can no
++# longer be downloaded.
++if(!-e"seqmap.exe")
++	{
++	foreach my$path_dir(split(/:/,$ENV{PATH}))
++		{
++		if(-x"$path_dir/seqmap.exe")
++			{
++			symlink("$path_dir/seqmap.exe","seqmap.exe")||die print"\nERROR! Unable to link $path_dir/seqmap.exe into the working directory.\n$!\n\n";
++			last;
++			}
++		}
++	}
++if(!-e"seqmap.exe")
++	{
++	print"\nERROR! seqmap.exe not found in the working directory or in PATH.\n\n";
++	exit 1;
++	}
++
+ # download SeqMap source and compile it (if executable is not present in current working directory)
+ $SeqMap_source='https://www.smallrnagroup.uni-mainz.de/data/UNITAS/SeqMap/seqmap-1.0.13-src.zip';
+ $request = HTTP::Request->new(GET => 'https://www.smallrnagroup.uni-mainz.de/data/UNITAS/SeqMap/release');
+ $response = $useragent->request($request);
+-$version = $response->content;
++$version = $response->is_success ? $response->content : "NA";
+ $db_versions_info.="SeqMap version/date: ...................... $version\n";
+ if(!-e"seqmap.exe")
+ 	{
+@@ -1011,7 +1059,7 @@
+ 				else
+ 					{
+ 					print" Permission denied.\nYou have to change file permission for file 'seqmap.exe' manually. Try the following command:\n\n chmod 755 seqmap.exe\n\nThen restart unitas.\n\n";
+-					exit;
++					exit 1;
+ 					}
+ 				}
+ 			else
+@@ -1040,7 +1088,7 @@
+ 				else
+ 					{
+ 					print" Permission denied.\nYou have to change file permission for file 'seqmap.exe' manually. Try the following command:\n\n chmod 755 seqmap.exe\n\nThen restart unitas.\n\n";
+-					exit;
++					exit 1;
+ 					}
+ 				}
+ 			else
+@@ -1084,7 +1132,7 @@
+ elsif($species{$species}eq'undefined')
+ 	{
+ 	print"\nError! You must provide reference sequence file(s) when using undefined species.\n\n";
+-	exit;
++	exit 1;
+ 	}
+ 
+ 
+@@ -1103,42 +1151,41 @@
+ 
+ ";}
+ 
+-@childs=();
+-$parent_process_id=$$;
++# gcf 1.8.0-1: track worker processes directly instead of counting *.unitas_pid files (stale
++# files from crashed runs blocked new runs forever) and exit non-zero when any worker fails.
++%running=();
++$failed_workers=0;
+ foreach$input(@input)
+ 	{
+-	# fork only when less than $threads pid-files exist in the current directory.
+-	while(1)
++	while(scalar(keys%running)>=$threads)
+ 		{
+-		sleep(1);
+-		@pid_files=glob("*.$parent_process_id.unitas_pid");
+-		if(@pid_files<$threads)
+-			{
+-			$pid=fork;
+-			if($pid)
+-				{
+-				push(@childs,$pid);
+-				}
+-			elsif($pid==0)
+-				{
+-				open(WIZ_PID,">$$.$parent_process_id.unitas_pid");
+-				close WIZ_PID;
+-				process_file();
+-				unlink("$$.$parent_process_id.unitas_pid")||print"\nError. Unable to remove $$.$parent_process_id.unitas_pid.\n$!\n\n";
+-				exit 0;
+-				}
+-			else
+-				{
+-				die print"\nError. Unable to fork annotation of $input.\n\n";
+-				}
+-			last;
+-			}
++		$done=waitpid(-1,0);
++		last if $done<=0;
++		$failed_workers++ if $?!=0;
++		delete$running{$done};
++		}
++	$pid=fork;
++	if(!defined$pid)
++		{
++		die print"\nError. Unable to fork annotation of $input.\n\n";
++		}
++	elsif($pid==0)
++		{
++		process_file();
++		exit 0;
+ 		}
++	$running{$pid}=1;
++	}
++while(($done=waitpid(-1,0))>0)
++	{
++	$failed_workers++ if $?!=0;
+ 	}
+-foreach$pid(@childs)
++if($failed_workers>0)
+ 	{
+-	waitpid($pid,0);
++	print"\nERROR! Annotation failed for $failed_workers of ".scalar(@input)." input file(s).\n\n";
++	exit 1;
+ 	}
++exit 0;
+ 
+ sub process_file
+ 	{
+@@ -1325,7 +1372,7 @@
+ 		else
+ 			{
+ 			print"\nERROR! Unknown file format of input file $input.\nUse FASTA, FASTQ, SAM or ELAND3 (from sRNAmapper: https://www.smallrnagroup.uni-mainz.de/software.html).\n\n";
+-			exit;
++			exit 1;
+ 			}
+ 		if(!$silent){print" ${collapsed}$format.";}
+ 		close INPUT;
+@@ -1333,14 +1380,14 @@
+ 		if(@phasi>0&&$format ne'SAM'&&$format ne'ELAND3')
+ 			{
+ 			print"\nERROR! When searching for phased RNAs the input file must be a map file in SAM or ELAND3 format (ELAND3 is standard output format of sRNAmapper: https://www.smallrnagroup.uni-mainz.de/software.html).\n\n";
+-			exit;
++			exit 1;
+ 			}
+ 		if($check_pp_signature)
+ 			{
+ 			if($format ne'SAM'&&$format ne'ELAND3')
+ 				{
+ 				print"\nERROR! When searching for ping pong signatures the input file must be a map file in SAM or ELAND3 format (ELAND3 is standard output format of sRNAmapper: https://www.smallrnagroup.uni-mainz.de/software.html).\n\n";
+-				exit;
++				exit 1;
+ 				}
+ 			}
+ 		if($do_trimming)
+@@ -2006,7 +2053,7 @@
+ 		if($complex_reads==0)
+ 			{
+ 			print"\nNo reads passed low complexity filter!";
+-			exit;
++			exit 1;
+ 			}
+ 		}
+ 	close IN;
+@@ -2102,6 +2149,7 @@
+ 
+ 		# create SeqMap input file for SPECIES run
+ 		open(INPUT,$input)||die print"\nERROR! Unable to open input file $input.\n$!\n\n";
++		$n_seqmap_input1=0;
+ 		open(NEW_INPUT,">$dump_folder/SeqMap_input1.temp")||die print"\nERROR! Unable to create temporary SeqMap input file $dump_folder/SeqMap_input1.temp.\n$!\n\n";
+ 		while($input_line=<INPUT>)
+ 			{
+@@ -2113,6 +2161,7 @@
+ 			elsif(!$miR_canonical_species{$input_line})
+ 				{
+ 				print NEW_INPUT">$reads\n$input_line\n";
++				$n_seqmap_input1++;
+ 				}
+ 			}
+ 		close INPUT;
+@@ -2140,7 +2189,14 @@
+ 
+ 		# run SeqMap on SPECIES miRNA hairpins
+ 		$mm_for_SeqMap_run=$intmod_miR+$max_miRtail_length;
+-		if($^O eq'linux'||$^O eq'darwin')
++		if($n_seqmap_input1==0)
++			{
++			# gcf 1.8.0-1: all reads were canonical miRNAs; SeqMap fails on empty input
++			open(my$empty_seqmap,'>',"$dump_folder/SeqMap_species.temp")||die print"\nERROR! Unable to create $dump_folder/SeqMap_species.temp.\n$!\n\n";
++			print{$empty_seqmap}"trans_id\ttrans_coord\ttarget_seq\tprobe_id\tprobe_seq\tnum_mismatch\n";
++			close$empty_seqmap;
++			}
++		elsif($^O eq'linux'||$^O eq'darwin')
+ 			{
+ 			qx/.\/seqmap.exe $mm_for_SeqMap_run $dump_folder\/SeqMap_input1.temp $dump_folder\/miRBase_hairpin_$species{$species}.fas $dump_folder\/SeqMap_species.temp \/output_all_matches \/forward_strand \/available_memory:${memory}000 $less_memory_options_miR> $dump_folder\/SeqMap_report1.txt/;
+ 			}
+@@ -2166,7 +2222,7 @@
+ 			if($_=~/not enough memory/)
+ 				{
+ 				print"\n\nERROR. Not enough memory available for SeqMap. Check $dump_folder/SeqMap_report1.txt for more details. Try less mismatch (-mismatch [n]), less insertions/deletions (-insdel [n]), fewer non-template 3' nucleotides (-tail [n]). Alternatively you may want to use the options -less_memory or -even_less_memory.\n\n";
+-				exit;
++				exit 1;
+ 				}
+ 			}
+ 		close SMR;
+@@ -2202,7 +2258,7 @@
+ 				{
+ 				print$_;
+ 				}
+-			exit;
++			exit 1;
+ 			}
+ 		while(<SEQMAP>)
+ 			{
+@@ -2332,7 +2388,7 @@
+ 					if($_=~/not enough memory/)
+ 						{
+ 						print"\n\nERROR. Not enough memory available for SeqMap. Check $dump_folder/SeqMap_report2.txt for more details. Try less mismatch (-mismatch [n]), less insertions/deletions (-insdel [n]), fewer non-template 3' nucleotides (-tail [n]). Alternatively you may want to use the options -less_memory or -even_less_memory.\n\n";
+-						exit;
++						exit 1;
+ 						}
+ 					}
+ 				close SMR;
+@@ -2365,7 +2421,7 @@
+ 						{
+ 						print$_;
+ 						}
+-					exit;
++					exit 1;
+ 					}
+ 				while(<SEQMAP>)
+ 					{
+@@ -2837,7 +2893,7 @@
+ 				if($_=~/not enough memory/)
+ 					{
+ 					print"\n\nERROR. Not enough memory available for SeqMap. Check $dump_folder/SeqMap_report3.txt for more details. Try less mismatch (-mismatch [n]), less insertions/deletions (-insdel [n]), fewer non-template 3' nucleotides (-tail [n]). Alternatively you may want to use the options -less_memory or -even_less_memory.\n\n";
+-					exit;
++					exit 1;
+ 					}
+ 				}
+ 			close SMR;
+@@ -3171,7 +3227,7 @@
+ 			if($_=~/not enough memory/)
+ 				{
+ 				print"\n\nERROR. Not enough memory available for SeqMap. Check $dump_folder/SeqMap_report4.txt for more details. Try less mismatch (-mismatch [n]), less insertions/deletions (-insdel [n]), fewer non-template 3' nucleotides (-tail [n]). Alternatively you may want to use the options -less_memory or -even_less_memory.\n\n";
+-				exit;
++				exit 1;
+ 				}
+ 			}
+ 		close SMR;
+@@ -4920,7 +4976,7 @@
+ 	$response = $useragent->request($request);
+ 	$eval_URL="";
+ 	$eval_URL = $response->content;
+-	if(length$eval_URL>0)
++	if($response->is_success&&length$eval_URL>0)
+ 		{
+ 		eval$eval_URL;
+ 		}
+@@ -6265,7 +6321,7 @@
+ 		$response = $useragent->request($request);
+ 		$eval_URL="";
+ 		$eval_URL = $response->content;
+-		if(length$eval_URL>0)
++		if($response->is_success&&length$eval_URL>0)
+ 			{
+ 			eval$eval_URL;
+ 			}
+@@ -7665,7 +7721,7 @@
+ 			$response = $useragent->request($request);
+ 			$eval_URL="";
+ 			$eval_URL = $response->content;
+-			if(length$eval_URL>0)
++			if($response->is_success&&length$eval_URL>0)
+ 				{
+ 				eval$eval_URL;
+ 				}
+@@ -9026,7 +9082,7 @@
+ 					{
+ 					print" Warning: Downloaded $success/$i file(s)!\n\n";
+ 					}
+-				$db_versions_info.="piRNA cluster database version/date: ...... $mday.$mon.$year (dd.mm.yyyy)\n";
++				$db_versions_info.="piRNA cluster database version/date: ...... ".(length$piRclDB_date?$piRclDB_date:"$mday.$mon.$year")." (dd.mm.yyyy)\n";
+ 
+ 				if(!$silent){print"\nProcess data from piRNA cluster database...";}
+ 				open(PIRCLDB_ALL,">UNITAS_refdump_$species/piRclDB")||die print"\nERROR! Unable to create piRNA cluster sequence file UNITAS_refdump_$species/piRclDB.fas.\n$!\n\n";
+@@ -9063,11 +9119,18 @@
+ 			else
+ 				{
+ 				if(!$silent){print"\nNo piRNA cluster data for $species{$species} at piRNA cluster database -> SKIP.";}
+-				$db_versions_info.="piRNA cluster database version/date: ...... $mday.$mon.$year (dd.mm.yyyy)\n";
++				$db_versions_info.="piRNA cluster database version/date: ...... ".(length$piRclDB_date?$piRclDB_date:"$mday.$mon.$year")." (dd.mm.yyyy)\n";
+ 				}
+ 			}
+ 
+ 		# download and process ensembl ncRNA data
++		if(length$ensembl_release)
++			{
++			$ensemblgenomes_release="NA" if !length$ensemblgenomes_release;
++			if(!$silent){print"\nEnsembl release from mirror: $ensembl_release.";}
++			}
++		else
++		{
+ 		if(!$silent){print"\nCheck latest Ensembl database release...";}
+ 		$request = HTTP::Request->new(GET => "https://www.ensembl.org");
+ 		$response = $useragent->request($request);
+@@ -9114,11 +9177,12 @@
+ 			$ensemblgenomes_release=52;
+ 			}
+ 
++		}
+ 		$request = HTTP::Request->new(GET => 'https://www.smallrnagroup.uni-mainz.de/data/UNITAS/URLs/Ensembl_ncRNA');
+ 		$response = $useragent->request($request);
+ 		$eval_URL="";
+ 		$eval_URL = $response->content;
+-		if(length$eval_URL>0)
++		if($response->is_success&&length$eval_URL>0)
+ 			{
+ 			eval$eval_URL;
+ 			}
+@@ -10582,7 +10646,7 @@
+ 		$response = $useragent->request($request);
+ 		$eval_URL="";
+ 		$eval_URL = $response->content;
+-		if(length$eval_URL>0)
++		if($response->is_success&&length$eval_URL>0)
+ 			{
+ 			eval$eval_URL;
+ 			}
+@@ -11948,11 +12012,18 @@
+ 		open(CDNA_EDIT,">UNITAS_refdump_$species/cDNA.fas")||die print"\nERROR! Unable to create UNITAS_refdump_$species/cDNA.fas.\n$!\n\n";
+ 		%cDNA=();
+ 		$cDNA_seq_ID=0;
++		$cDNA_key="";
++		$cDNA_seq="";
+ 		while(<CDNA>)
+ 			{
+ 			$_=~s/\s*$//;
+ 			if($_=~/^>/)
+ 				{
++				if(length$cDNA_key&&length$cDNA_seq>length$cDNA{$cDNA_key})
++					{
++					$cDNA{$cDNA_key}=$cDNA_seq;
++					}
++				$cDNA_seq="";
+ 				$cDNA_seq_ID++;
+ 				# extract biotype
+ 				if($_=~s/transcript_biotype:[^ ]+//)
+@@ -11993,14 +12064,19 @@
+ 					{
+ 					$symbol=$cDNA_seq_ID;
+ 					}
++				$cDNA_key="$biotype|$symbol";
+ 				}
+ 			else
+ 				{
+-				$cDNA{"$biotype|$symbol"}.=$_;
++				$cDNA_seq.=$_;
+ 				}
+ 			}
+ 		close CDNA;
+-		foreach$head(keys%cDNA)
++		if(length$cDNA_key&&length$cDNA_seq>length$cDNA{$cDNA_key})
++			{
++			$cDNA{$cDNA_key}=$cDNA_seq;
++			}
++		foreach$head(sort keys%cDNA)
+ 			{
+ 			print CDNA_EDIT">$head\n$cDNA{$head}\n";
+ 			}
+@@ -12166,8 +12242,8 @@
+ 		if(!$silent){print"\nrRNA sequences: (SSU=$i_ssu LSU=$i_lsu).\nTOTAL: $i ncRNA sequences stored in UNITAS_refdump_$species/ncRNA.fas.";}
+ 
+ 		# download miRBase data
+-		$miRBase_mature='https://mirbase.org/ftp/CURRENT/mature.fa.gz';
+-		$miRBase_hairpin='https://mirbase.org/ftp/CURRENT/hairpin.fa.gz';
++		$miRBase_mature||='https://mirbase.org/ftp/CURRENT/mature.fa.gz';
++		$miRBase_hairpin||='https://mirbase.org/ftp/CURRENT/hairpin.fa.gz';
+ 		if(!$silent){print"\nDownload mature miRNA sequences from miRBase...";}
+ 		# $status=getstore($miRBase_mature,"UNITAS_refdump_$species/miRBase_mature.gz");
+ 		$status = $response->code;
+@@ -12180,6 +12256,7 @@
+ 			close $fh;
+ 			$response = $useragent->get("https://mirbase.org/ftp/CURRENT/");
+ 			($version) = ($response->content =~ /THIS_IS_RELEASE_([^\"]+)\"/);
++			$version=$miRBase_release if length$miRBase_release;
+ 			$db_versions_info.="miRBase database version/date: ............ $version\n";
+ 			if(!$silent){print" OK. $version.";}
+ 			}
+@@ -12222,6 +12299,7 @@
+ 			close $fh;
+ 			$response = $useragent->get("https://mirbase.org/ftp/CURRENT/");
+ 			($version) = ($response->content =~ /THIS_IS_RELEASE_([^\"]+)\"/);
++			$version=$miRBase_release if length$miRBase_release;
+ 			if(!$silent){print" OK. $version.";}
+ 			}
+ 		else
+@@ -12380,7 +12458,7 @@
+ 	if(@diffex_g1==0||@diffex_g2==0)
+ 		{
+ 		print"\n\nYou must define unitas output folders for each group with -g1 and -g2.\nThe command should look like this:\n\nperl unitas.pl -diffexpr -g1 folderA -g1 folderB -g2 folderC -g2 folderD\n\n";
+-		exit;
++		exit 1;
+ 		}
+ 	if($standard_Ttest) # load the Statistics::Distributions module
+ 		{
+@@ -12394,7 +12472,7 @@
+ https://metacpan.org/pod/Statistics::Distributions.
+ 
+ ";
+-		exit;}
++		exit 1;}
+ 		}
+ 
+ 
+@@ -12455,7 +12533,7 @@
+ 		if(!-d$_)
+ 			{
+ 			print"\nERROR! Folder $_ does not exist.\n\n";
+-			exit;
++			exit 1;
+ 			}
+ 		}
+ 
+@@ -12465,7 +12543,7 @@
+ 		if($diffex_g2{$fld})
+ 			{
+ 			print"\nERROR! A replicate must not occur in both groups.\n$f1 was assigned to group 1 AND group 2.\n\n";
+-			exit;
++			exit 1;
+ 			}
+ 		}
+ 
