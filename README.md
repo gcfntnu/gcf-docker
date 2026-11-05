@@ -145,7 +145,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [scanpy](scanpy/) | `gcfntnu/scanpy` | `gcfntnu/python-base-conda:3.12` | `1.12.3` | Scanpy analysis environment |
 | [scanpy-analyse](scanpy-analyse/) | — | `gcfntnu/scanpy:1.12.3` |  | Scanpy with extra R/analysis dependencies |
 | [scasa](scasa/) | `gcfntnu/scasa` | `gcfntnu/r-base-conda:4.1.1` |  | Scasa isoform quantification |
-| [doublet-detection](doublet-detection/) | `gcfntnu/doublet-detection` | `gcfntnu/python-base-conda:3.11` |  | Doublet detection (scrublet, DoubletDetection, scDblFinder, scds) |
+| [doublet-detection](doublet-detection/) | `gcfntnu/doublet-detection` | `gcfntnu/scanpy:1.12.3 (digest)` |  | Doublet detection (DoubletDetection, scanpy's Scrublet, scDblFinder, scds), on the `scanpy` image's Python stack |
 | [solo-sc](solo-sc/) | `gcfntnu/solo-sc` | `nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04` |  | solo doublet detection (scvi-tools, GPU) |
 | [empty_nn](empty_nn/) | `gcfntnu/empty_nn` | `rocker/r-ver:4.2.1` |  | EmptyNN empty-droplet detection |
 | [cellbender](cellbender/) | `gcfntnu/cellbender` | `us.gcr.io/broad-dsde-methods/cellbender:0.3.2` | `latest` | CellBender ambient RNA removal |
@@ -205,7 +205,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [jupyterlab-rnaseq](jupyterlab-rnaseq/) | `gcfntnu/jupyterlab-rnaseq` | `gcfntnu/rnaseq:1.3` | `1.3` | JupyterLab on `rnaseq` |
 | [jupyterlab-diff-exprs](jupyterlab-diff-exprs/) | `gcfntnu/jupyterlab-diff-exprs` | `gcfntnu/diff-exprs:1.3` | `1.2` | JupyterLab on `diff-exprs` |
 | [jupyterlab-co-exprs](jupyterlab-co-exprs/) | `gcfntnu/jupyterlab-co-exprs` | `gcfntnu/co-exprs:1.0` | `1.0` | JupyterLab on `co-exprs` |
-| [jupyterlab-doublet-detection](jupyterlab-doublet-detection/) | `gcfntnu/jupyterlab-doublet-detection` | `gcfntnu/doublet-detection:latest` |  | JupyterLab on `doublet-detection` |
+| [jupyterlab-doublet-detection](jupyterlab-doublet-detection/) | `gcfntnu/jupyterlab-doublet-detection` | `gcfntnu/doublet-detection:4.3.0.post1` |  | JupyterLab on `doublet-detection` |
 | [jupyterlab-rnbeads](jupyterlab-rnbeads/) | `gcfntnu/jupyterlab-rnbeads` | `gcfntnu/rnbeads:2.12.2` |  | JupyterLab on `rnbeads` |
 | [jupyterlab-singlecell](jupyterlab-singlecell/) | `gcfntnu/jupyterlab-singlecell` | `gcfntnu/jupyterlab-base:test2` |  | Legacy single-cell JupyterLab |
 | [microbiome-nb](microbiome-nb/) | — | `gcfntnu/jupyterlab-base:0.1` |  | Microbiome R notebook environment |
@@ -229,9 +229,10 @@ These apply to new and changed images. Older directories don't all follow them y
 ### Versions and pinning
 
 - **Pin the tool version in the Dockerfile**, normally as an `ENV` or `ARG` (`ENV STAR_VERSION=2.7.11b`, `ARG SPLITPIPE_VER=1.8.2`), and use it in the install command.
-- **Pin whole environments in a file** when an image installs many packages, as `python-default/env.yml` and `doublet-detection/env.yml` do. Install them with `conda env update --name base --file env.yml`. Record the resolved environment of the published build, for example with `docker run --rm <image> conda list --export > packages.txt`.
+- **Pin whole environments in a file** when an image installs many packages, as `python-default/env.yml` does. Install them with `conda env update --name base --file env.yml`. Record the resolved environment of the published build, for example with `docker run --rm <image> conda list --export > packages.txt`.
 - **Pin `conda` itself** in such files if the base's conda must not change: an unpinned `conda env update` can upgrade conda and break its bundled plugins (see `python-default/env.yml`).
 - **Pin third-party bases** to a version or digest rather than `latest`, as `gcf-multiqc` does.
+- **Keep the base's Python stack when building on `gcfntnu/scanpy`.** Its Python packages are installed with `pip`, so a `conda install` into the same environment can replace them. Add Python packages with `pip install -c <base package list>` (`pip list --format=freeze` of the base), put R or other conda packages in their own environment, and check the base's versions at build time. `doublet-detection` does all three.
 
 ### Runtime
 
