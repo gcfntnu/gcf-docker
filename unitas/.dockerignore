@@ -4,3 +4,4 @@
 !files/seqmap.exe
 !unitas-1.8.0-1.patch
 !unitas_build_refdump.sh
+!unitas_normalize_hairpin.awk

@@ -1,6 +1,9 @@
 FROM gcfntnu/build-base:22.04
 
-# unitas 1.8.0 with GCF fixes (image tag 1.8.0-1), see unitas-1.8.0-1.patch.
+# unitas 1.8.0 with GCF fixes (image tag 1.8.0-2).
+#   1.8.0-1: offline build and workflow fixes, see unitas-1.8.0-1.patch.
+#   1.8.0-2: unitas_build_refdump.sh strips own species prefixes from miRBase hairpin names
+#            (unitas_normalize_hairpin.awk, gcfntnu/gcf-docker#8). unitas.pl is unchanged.
 #
 # The upstream host (www.smallrnagroup.uni-mainz.de) is gone, so the script and SeqMap are
 # supplied locally in files/ (git-ignored; local builds only):
@@ -14,7 +17,8 @@ FROM gcfntnu/build-base:22.04
 # unitas_build_refdump.sh to build reference dumps from Ensembl, GtRNAdb and miRBase.
 
 ENV UNITAS_VERSION=1.8.0
-ENV UNITAS_BUILD=1.8.0-1
+ENV UNITAS_BUILD=1.8.0-2
+ARG UNITAS_PATCH=unitas-1.8.0-1.patch
 ENV PATH=/opt/unitas:$PATH
 
 RUN apt-get update --fix-missing && apt-get install -y \
@@ -43,13 +47,16 @@ RUN cpanm LWP::Simple \
     Scalar::Util
 
 WORKDIR /opt/unitas
-COPY files/unitas_${UNITAS_VERSION}.pl files/seqmap.exe unitas-${UNITAS_BUILD}.patch unitas_build_refdump.sh ./
+COPY files/unitas_${UNITAS_VERSION}.pl files/seqmap.exe ${UNITAS_PATCH} unitas_build_refdump.sh unitas_normalize_hairpin.awk ./
 RUN dos2unix unitas_${UNITAS_VERSION}.pl
 # Legacy header-length patches (already present in the script from gcfntnu/unitas:1.8.0; no-ops then)
 RUN sed -i 's/head>30/head>1000/; s/head,0,27/head,0,1000/' unitas_${UNITAS_VERSION}.pl
-RUN patch unitas_${UNITAS_VERSION}.pl < unitas-${UNITAS_BUILD}.patch \
-    && rm unitas-${UNITAS_BUILD}.patch \
+RUN patch unitas_${UNITAS_VERSION}.pl < ${UNITAS_PATCH} \
+    && rm ${UNITAS_PATCH} \
     && perl -c unitas_${UNITAS_VERSION}.pl
 RUN ln -s unitas_${UNITAS_VERSION}.pl unitas.pl \
     && chmod 755 /opt/unitas/unitas* /opt/unitas/seqmap.exe \
-    && seqmap.exe 2>&1 | grep -q 'SeqMap: Short Sequence Mapping Tool'
+    && seqmap.exe 2>&1 | grep -q 'SeqMap: Short Sequence Mapping Tool' \
+    && printf '>hsa-mir-1 MI1 Homo sapiens hsa-miR-1 stem-loop\nACGU\n' \
+       | awk -v report=/dev/null -f unitas_normalize_hairpin.awk 2>/dev/null \
+       | grep -qx '>hsa-mir-1 MI1 Homo sapiens miR-1 stem-loop'
