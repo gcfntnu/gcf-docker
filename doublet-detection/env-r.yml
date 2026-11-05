@@ -1,0 +1,17 @@
+# R environment for the doublet-detection R rules (scds.R, scdblfinder.R in gcf-workflows).
+# Installed as its own conda environment (/opt/miniconda3/envs/r), so that it cannot change the
+# pip-installed Python stack of gcfntnu/scanpy. R and Rscript are linked into /usr/local/bin.
+# Direct dependencies are pinned; the resolved environment is listed in r-packages.txt.
+name: r
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.5.3
+  - r-argparse=2.3.3
+  - r-matrix=1.7_6
+  - bioconductor-scds=1.26.1
+  - bioconductor-scdblfinder=1.24.10
+  - bioconductor-tenxio=1.12.1
+  - bioconductor-singlecellexperiment=1.32.0
+  - bioconductor-biocparallel=1.44.0
