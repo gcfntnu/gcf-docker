@@ -129,6 +129,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [superseq](superseq/) | — | `gcfntnu/r-base:3.6.0` |  | superSeq sequencing-depth analysis |
 | [INSPEcT](INSPEcT/) | `gcfntnu/inspect` | `gcfntnu/r-base:4.2.0` |  | INSPEcT RNA dynamics |
 | [arcashla](arcashla/) | `gcfntnu/arcashla` | `ubuntu:19.10` |  | arcasHLA HLA typing from RNA-seq |
+| [rockhopper](rockhopper/) | `gcfntnu/rockhopper` | `gcfntnu/python-base-conda:4.10.3` | `2.0.3` | Rockhopper bacterial RNA-seq analysis (downloads the current `Rockhopper.jar` at build time) |
 | [sad](sad/) | — | `gcfntnu/build-base:latest` |  | SAD (Salmon Anomaly Detection) for unannotated transcripts |
 
 ### Single-cell and spatial
@@ -153,8 +154,10 @@ A dash under **Image** means no published image was found for the directory on D
 | [gficf](gficf/) | — | `gcfntnu/r-base:3.6.1` |  | GF-ICF normalisation |
 | [seurat](seurat/) | `gcfntnu/seurat` | `gcfntnu/r-base:3.6.0` | `dev-3.0.1` | Seurat (`Dockerfile.dev` builds the development tag) |
 | [mapmycells](mapmycells/) | `gcfntnu/mapmycells` | `gcfntnu/python-base-conda:3.12` |  | Allen Institute MapMyCells cell-type mapping |
+| [rapids-scanpy](rapids-scanpy/) | `gcfntnu/rapids-scanpy` | `ghcr.io/scverse/rapids-singlecell-cu12:v0.17.0` | `0.17.0` | GPU single-cell analysis (rapids-singlecell) with CellTypist |
 | [orthogene](orthogene/) | `gcfntnu/orthogene` | `gcfntnu/r-base-conda:4.5.3` | `1.12.0` | orthogene ortholog mapping |
 | [trust4](trust4/) | `gcfntnu/trust4` | `gcfntnu/build-base:20.04` |  | TRUST4 TCR/BCR reconstruction |
+| [sctk](sctk/) | `gcfntnu/sctk` | `gcfntnu/python-base-conda:3.9` | `0.2.2` (hard-coded in `auto_qc.smk`) | sctk single-cell QC (scanpy 1.9.3) |
 | [cellsnp-lite](cellsnp-lite/) | `gcfntnu/cellsnp-lite` | `ubuntu:22.04` | `1.2.4` | cellsnp-lite allele counting |
 | [vireo](vireo/) | `gcfntnu/vireo` | `gcfntnu/python-base-conda:3.12` | `0.5.9-gcf1` | vireo genotype demultiplexing |
 | [souporcell](souporcell/) | `gcfntnu/souporcell` | `gcfntnu/python-base-conda:3.9` |  | souporcell genotype demultiplexing |
@@ -211,7 +214,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [microbiome-nb](microbiome-nb/) | — | `gcfntnu/jupyterlab-base:0.1` |  | Microbiome R notebook environment |
 | [sigma2-singleuser](sigma2-singleuser/) | `gcfntnu/sigma2-singleuser` | `jupyter/datascience-notebook:d400e383cc1d` |  | JupyterHub single-user notebook image with CUDA |
 | [rnbeads](rnbeads/) | `gcfntnu/rnbeads` | `gcfntnu/r-base:4.1.2` |  | RnBeads DNA methylation analysis |
-gcf-workflows also uses `gcfntnu/rapids-scanpy`, `gcfntnu/rockhopper` and `gcfntnu/ivar`, which have no directory in this repository. (`gcfntnu/ivar:1.3.1` is a different image from `gcfntnu/signal-ivar`.)
+gcf-workflows also uses `gcfntnu/ivar`, which has no directory in this repository. (`gcfntnu/ivar:1.3.1` is a different image from `gcfntnu/signal-ivar`.)
 Other keys in its `docker.config` point to images outside `gcfntnu`, such as BioContainers and StaPH-B.
 
 ## Conventions
