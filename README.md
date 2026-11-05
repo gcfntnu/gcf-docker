@@ -265,7 +265,7 @@ The script:
 2. pushes the image with `docker push --all-tags gcfntnu/<directory>`;
 3. if the directory has a `dependencies.txt`, does the same for each directory listed there, under the same tag (for example `scanpy/dependencies.txt` lists `jupyterlab-scanpy`, so `scanpy:1.12.3` also builds and pushes `jupyterlab-scanpy:1.12.3`).
 
-It runs `docker` through `sudo` and stops at the first failing build. Before running it:
+It runs plain `docker`, so you need to be in the `docker` group, and it pushes with your own `docker login`. Set `DOCKER` to use another command, for example `DOCKER="sudo docker" ../bin/build_tag_push_gcfntnu.sh <tag>`; `sudo` then pushes with root's Docker login, not yours. It prints each command before running it and stops at the first failing build. Blank lines in `dependencies.txt` are skipped. Before running it:
 
 - **The image name is the directory name.** Directories published under another name (`entrezdirect`, `bfq-plot`, `INSPEcT`, the `signal/*` images) need a manual build, as do variant Dockerfiles such as `python-base-conda/Dockerfile-3.12`, because the script always builds `Dockerfile`.
 - **`--all-tags` pushes every local tag of the image.** If `docker image ls gcfntnu/<directory>` shows an old or locally modified tag, it will overwrite that tag on Docker Hub. Remove such local tags first.
