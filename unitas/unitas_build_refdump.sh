@@ -8,6 +8,9 @@
 #
 # The sources are placed in a local mirror of the old server layout and processed by unitas' own
 # -refdump code (unitas.pl -mirror), so the files are formatted exactly as UNITAS expects.
+# Before that, unitas_normalize_hairpin.awk strips a record's own species prefix from the miRBase
+# hairpin names (hsa-miR-13167 -> miR-13167); the renamed names are listed in
+# gcf_hairpin_renamed.tsv in the dump.
 #
 # Usage: unitas_build_refdump.sh --species NAME --static-dir DIR --ensembl-release N --outdir DIR
 #                                [--mirbase-release X] [--workdir DIR] [--keep-raw]
@@ -35,6 +38,8 @@ while (( $# )); do
     esac
 done
 die() { echo "unitas_build_refdump: $*" >&2; exit 1; }
+normalize_awk=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/unitas_normalize_hairpin.awk
+[[ -r $normalize_awk ]] || die "missing $normalize_awk"
 for name in species static ensembl outdir; do
     [[ -n ${!name} ]] || die "--${name/ensembl/ensembl-release} is required (see --help)"
 done
@@ -103,6 +108,20 @@ fetch "$ens_base/cdna/$cdna" "$src/$cdna" fasta.gz
 fetch "https://gtrnadb.ucsc.edu/genomes/eukaryota/$gtrnadb-tRNAs.fa" "$src/$trna" fasta
 for f in mature hairpin; do
     fetch "https://www.mirbase.org/download/$f.fa" "$src/$f.fa" fasta
+done
+# UNITAS names species hairpins from the header's name field; strip the record's own species
+# prefix there so that all miRNAs are reported without it (gcfntnu/gcf-docker#8).
+renamed=$workdir/gcf_hairpin_renamed.tsv
+awk -v report="$renamed" -f "$normalize_awk" "$src/hairpin.fa" > "$src/hairpin.fa.normalized" 2> "$workdir/normalize.log" \
+    || die "hairpin normalization failed: $(cat "$workdir/normalize.log")"
+awk -v mode=check -f "$normalize_awk" "$src/hairpin.fa.normalized" > "$workdir/normalize.check" \
+    || die "hairpin names still carry their own species prefix: $(head -3 "$workdir/normalize.check")"
+mv "$src/hairpin.fa.normalized" "$src/hairpin.fa"
+normalize_note="gcf: stripped the own species prefix from $(wc -l < "$renamed") miRBase hairpin names (gcf_hairpin_renamed.tsv)"
+echo "$normalize_note"
+printf '%s\t%s\t%s\t%s\n' "hairpin.fa" "gcf:unitas_normalize_hairpin.awk" \
+    "$(sha256sum "$src/hairpin.fa" | cut -d' ' -f1)" "NA" >> "$sources"
+for f in mature hairpin; do
     gzip -n "$src/$f.fa"
 done
 
@@ -143,16 +162,25 @@ if ! (cd "$workdir/run" && unitas.pl -refdump -species "$species" -mirror "$mirr
 fi
 
 dump=$workdir/run/UNITAS_refdump_$species
-case $species in homo_sapiens) org=Human ;; mus_musculus) org=Mouse ;; rattus_norvegicus) org=Rat ;; esac
+case $species in
+    homo_sapiens) org=Human code=hsa ;; mus_musculus) org=Mouse code=mmu ;; rattus_norvegicus) org=Rat code=rno ;;
+esac
 for f in db_versions.info ncRNA.fas cDNA.fas tRF-1.fas tRNA_leader.fas miRBase_mature piRclDB \
          "miRBase_hairpin_$org.fas" "miRBase_hairpin_non-$org.fas"; do
     [[ -s $dump/$f ]] || die "dump is missing $f"
 done
+# Species hairpins are named from the normalized header; none may keep the species prefix.
+# (miRBase_hairpin_non-$org.fas is named from the record IDs, which always carry a prefix.)
+if grep -q "^>$code-" "$dump/miRBase_hairpin_$org.fas"; then
+    die "miRBase_hairpin_$org.fas has $code- names: $(grep "^>$code-" "$dump/miRBase_hairpin_$org.fas" | head -3 | tr '\n' ' ')"
+fi
 if (( ! keep_raw )); then
     rm -f "$dump/ensembl_ncRNA" "$dump/ensembl_cDNA" "$dump/miRBase_hairpin"
 fi
 cp "$sources" "$dump/gcf_sources.tsv"
+cp "$renamed" "$dump/gcf_hairpin_renamed.tsv"
 cp "$log" "$dump/gcf_refdump.log"
+echo "$normalize_note" >> "$dump/gcf_refdump.log"
 
 rm -rf "$outdir/UNITAS_refdump_$species" "$outdir/UNITAS_refdump_$species.tar.gz"
 tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='1970-01-01' \
