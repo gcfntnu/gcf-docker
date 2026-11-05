@@ -1,4 +1,9 @@
 #!/bin/bash
+# Build, tag and push the image of the current directory as gcfntnu/<directory>:<tag> and :latest,
+# then the same for each directory listed in dependencies.txt. See the gcf-docker README.
+#
+# Runs plain `docker`, as a member of the docker group, and pushes with your own `docker login`.
+# Set DOCKER to use another command, e.g. DOCKER="sudo docker" (sudo then uses root's login).
 set -euo pipefail
 
 if [ "$#" -lt 1 ] ;
@@ -9,20 +14,22 @@ then
 fi
 
 TAG=$1
-REPO=$(basename $(pwd))
+REPO=$(basename "$(pwd)")
+read -r -a DOCKER <<< "${DOCKER:-docker}"
 
-echo "sudo docker build . -t gcfntnu/$REPO:$TAG -t gcfntnu/$REPO:latest --progress=plain"
-sudo docker build -t gcfntnu/$REPO:$TAG -t gcfntnu/$REPO:latest --no-cache --progress=plain .  2>&1 | tee build.log
-echo "sudo docker push --all-tags gcfntnu/$REPO" 
-sudo docker push --all-tags gcfntnu/$REPO
+run() {  # print the command exactly as it is run, then run it
+    echo "$*"
+    "$@"
+}
 
+run "${DOCKER[@]}" build -t "gcfntnu/$REPO:$TAG" -t "gcfntnu/$REPO:latest" --no-cache --progress=plain . 2>&1 | tee build.log
+run "${DOCKER[@]}" push --all-tags "gcfntnu/$REPO"
 
 if test -f dependencies.txt; then
-    cat dependencies.txt | while read line || [[ -n $line ]];
-    do
-       echo "sudo docker build ../$line -t $line:$TAG -t $line:latest --progress=plain"
-       sudo docker build ../$line -t gcfntnu/$line:$TAG -t gcfntnu/$line:latest --no-cache --progress=plain  2>&1 | tee docker_dependencies_build.log
-       echo "sudo docker push --all-tags gcfntnu/$line"
-       sudo docker push --all-tags gcfntnu/$line
-    done
+    while read -r line || [[ -n $line ]]; do
+        [[ -n $line ]] || continue
+        run "${DOCKER[@]}" build "../$line" -t "gcfntnu/$line:$TAG" -t "gcfntnu/$line:latest" --no-cache --progress=plain 2>&1 \
+            | tee docker_dependencies_build.log
+        run "${DOCKER[@]}" push --all-tags "gcfntnu/$line"
+    done < dependencies.txt
 fi
