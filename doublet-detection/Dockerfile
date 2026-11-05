@@ -5,13 +5,15 @@
 # kept exactly: doubletdetection is installed with pip constrained to them, and R lives in its own
 # conda environment. The build fails if anndata, scanpy, pandas or numpy differ from the base.
 #
-#   Python: doubletdetection (run_doubletdetection.py), scanpy's Scrublet (run_scanpy_scrublet.py)
+#   Python: doubletdetection (run_doubletdetection.py), scanpy's Scrublet (run_scanpy_scrublet.py),
+#           marsilea for the dashboard PDF of doublet_rank_aggr.py
 #   R:      scds, scDblFinder, TENxIO, argparse (scds.R, scdblfinder.R)
 #
 # Resolved versions: packages.txt (Python, pip list) and r-packages.txt (R environment, conda list).
 FROM gcfntnu/scanpy:1.12.3@sha256:b386644bbe0ec72ea9b55fd4da9bf03f676b8247d1b89959dadce4c85e9ff309
 
 ENV DOUBLETDETECTION_VER=4.3.0.post1 \
+    MARSILEA_VER=0.8.1 \
     DOUBLET_DETECTION_BUILD=4.3.0.post1 \
     SCANPY_BASE_VERSIONS="scanpy==1.12.3 anndata==0.13.3.post0 pandas==3.0.5 numpy==2.5.2"
 
@@ -21,7 +23,8 @@ RUN apt-get update && \
 
 # Python: keep every package of the base at its version
 RUN pip list --format=freeze > /opt/scanpy-base-packages.txt \
-    && pip install --no-cache-dir -c /opt/scanpy-base-packages.txt "doubletdetection==${DOUBLETDETECTION_VER}"
+    && pip install --no-cache-dir -c /opt/scanpy-base-packages.txt \
+        "doubletdetection==${DOUBLETDETECTION_VER}" "marsilea==${MARSILEA_VER}"
 
 # R in its own environment
 COPY env-r.yml /tmp/env-r.yml
@@ -37,5 +40,6 @@ RUN pip list --format=freeze > /tmp/packages.txt \
     && for p in ${SCANPY_BASE_VERSIONS}; do grep -qixF "$p" /tmp/packages.txt || { echo "expected $p" >&2; exit 1; }; done \
     && rm /tmp/packages.txt \
     && python -c "import doubletdetection, scanpy as sc; from doubletdetection import BoostClassifier; assert callable(sc.external.pp.scrublet)" \
+    && python -c "import marsilea, seaborn, scipy.stats; from marsilea.upset import UpsetData, Upset" \
     && Rscript -e 'for (p in c("argparse", "TENxIO", "scds", "scDblFinder", "SingleCellExperiment", "BiocParallel", "Matrix")) suppressPackageStartupMessages(library(p, character.only = TRUE))' \
     && Rscript -e 'library(argparse); invisible(ArgumentParser()$parse_args(character(0)))'

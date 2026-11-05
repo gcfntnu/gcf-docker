@@ -87,6 +87,7 @@ keyring==25.7.0
 kiwisolver==1.5.1
 lazy-loader==0.5
 legacy-api-wrap==1.5
+legendkit==0.5.2
 leidenalg==0.10.2
 libmambapy==2.3.2
 llvmlite==0.49.0
@@ -96,6 +97,7 @@ louvain==0.8.2
 magic-impute==3.0.0
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
+marsilea==0.8.1
 matplotlib==3.11.1
 mdurl==0.1.2
 menuinst==2.5.2
