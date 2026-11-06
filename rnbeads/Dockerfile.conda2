@@ -1,0 +1,4 @@
+FROM gcfntnu/python-base-conda
+RUN apt update && apt -y install ghostscript  flatpak-xdg-utils  default-libmysqlclient-dev libxml2 libxml2-dev less zip gzip curl wget
+
+RUN mamba install bioconda::bioconductor-rnbeads bioconda::bioconductor-rnbeads.hg38 bioconda::bioconductor-rnbeads.hg19 bioconda::bioconductor-missmethyl bioconda::bioconductor-watermelon bioconda::bioconductor-impute bioconda::bioconductor-gviz r::r-doparallel conda-forge::r-glmnet
