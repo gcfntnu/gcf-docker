@@ -304,5 +304,4 @@ docker buildx imagetools inspect gcfntnu/<image>:<tag>    # the published digest
 
 As of November 2026:
 
-- **`gcfntnu/cellbrowser` is selected by gcf-workflows but has no directory here and no published image.** The only rules that use it are in a file the workflows never load ([gcf-workflows#292](https://github.com/gcfntnu/gcf-workflows/issues/292)).
 - Many older images use bases that are no longer built from this repository (`python-base-conda:3.7`, `4.8.2`, `4.10.3` and others), unpinned `latest` bases, or tags without a recorded build revision. Rebuilding them from today's recipes may not reproduce the published image.
