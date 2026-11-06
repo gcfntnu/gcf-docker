@@ -89,7 +89,6 @@ A dash under **Image** means no published image was found for the directory on D
 | [primerclip](primerclip/) | `gcfntnu/primerclip` | `gcfntnu/build-base:16.04` | `0.3.8` | Primer trimming for Swift amplicon panels |
 | [fastv](fastv/) | `gcfntnu/fastv` | `gcfntnu/python-base-conda:4.8.2` | `0.8.1` | Viral sequence detection in FASTQ |
 | [bfq-plot](bfq-plot/) | `gcfntnu/bfq_plot` | `gcfntnu/python-base-conda:3.7` | `0.1` | Plotting environment for BFQ QC figures |
-| [multiqc](multiqc/) | `gcfntnu/multiqc` | `gcfntnu/python-base:3.9` |  | MultiQC (older GCF build) |
 | [gcf-multiqc](gcf-multiqc/) | `gcfntnu/gcf-multiqc` | `python:3.11-slim (digest)` | `digest` | Upstream MultiQC with the GCF plugin; see [gcf-multiqc/README.md](gcf-multiqc/README.md) |
 
 ### Alignment, BAM and genome tools
