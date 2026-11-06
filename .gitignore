@@ -157,5 +157,4 @@ files/
 /rnbeads/Dockerfile.conda2
 /scanpy/Dockerfile.1.9.2
 /scanpy/Dockerfile.1.10.3
-/sigma2-singleuser/old/
-/sigma2-singleuser/helm-charts-dockerfiles/
+/sigma2-singleuser/
