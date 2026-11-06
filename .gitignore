@@ -158,3 +158,5 @@ files/
 /scanpy/Dockerfile.1.9.2
 /scanpy/Dockerfile.1.10.3
 /sigma2-singleuser/
+/mirec/
+/mgcount/

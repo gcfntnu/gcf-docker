@@ -173,11 +173,9 @@ A dash under **Image** means no published image was found for the directory on D
 | [mirtrace](mirtrace/) | `gcfntnu/mirtrace` | `gcfntnu/python-base-conda:3.7` | `1.0.1` | miRTrace small RNA QC |
 | [mirge](mirge/) | `gcfntnu/mirge` | `gcfntnu/python2-base-conda:2.7` |  | miRge (Python 2) |
 | [mirge3](mirge3/) | `gcfntnu/mirge3` | `gcfntnu/python-base-conda:4.10.3` |  | miRge3 |
-| [mirec](mirec/) | `gcfntnu/mirec` | `gcfntnu/python-base-conda:4.10.3` |  | miREC miRNA read error correction |
 | [quickmirseq](quickmirseq/) | `gcfntnu/quickmirseq` | `gcfntnu/python-base-conda:3.7` |  | QuickMIRSeq |
 | [seqbuster](seqbuster/) | `gcfntnu/seqbuster` | `gcfntnu/python-base-conda:3.7` |  | SeqBuster/miraligner |
 | [manatee](manatee/) | `gcfntnu/manatee` | `gcfntnu/python-base-conda:4.10.3` |  | Manatee small RNA quantification |
-| [mgcount](mgcount/) | `gcfntnu/mgcount` | `gcfntnu/python-base-conda:4.10.3` |  | MGcount total RNA-seq quantification including small RNAs |
 
 ### Metagenomics and microbiome
 
