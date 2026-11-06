@@ -98,7 +98,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [bowtie_samtools](bowtie_samtools/) | `gcfntnu/bowtie_samtools` | `gcfntnu/python-base-conda:3.7` | `1.2.3` | Bowtie + samtools |
 | [bowtie2_samtools](bowtie2_samtools/) | `gcfntnu/bowtie2_samtools` | `gcfntnu/python-base-conda:3.7` | `2.3.5` | Bowtie 2 + samtools |
 | [bwa_samtools](bwa_samtools/) | `gcfntnu/bwa_samtools` | `gcfntnu/python-base-conda:4.8.2` | `0.7.17` | BWA + samtools |
-| [star](star/) | `gcfntnu/star` | `gcfntnu/python-base-conda:3.12` | `2.7.11b-2` | STAR aligner |
+| [star](star/) | `gcfntnu/star` | `gcfntnu/python-base-conda:3.12` | `2.7.11b-4` | STAR aligner |
 | [sambamba](sambamba/) | `gcfntnu/sambamba` | `gcfntnu/python-base-conda:3.12` | `1.0.1` | sambamba BAM processing |
 | [picard](picard/) | `gcfntnu/picard` | `gcfntnu/python-base-conda:4.8.2` | `2.21.5` | Picard + GATK4 |
 | [deeptools](deeptools/) | `gcfntnu/deeptools` | `continuumio/miniconda:4.5.12` |  | deepTools |
@@ -116,7 +116,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [rnaseq](rnaseq/) | `gcfntnu/rnaseq` | `gcfntnu/r-base-conda:4.0.5` |  | Bioconductor RNA-seq analysis environment |
 | [diff-exprs](diff-exprs/) | `gcfntnu/diff-exprs` | `gcfntnu/r-base-conda:4.0.5` |  | Differential expression environment (edgeR, DESeq2, sva, EnhancedVolcano) |
 | [co-exprs](co-exprs/) | `gcfntnu/co-exprs` | `gcfntnu/r-base-conda:4.0.5` |  | Co-expression environment (GWENA, mixOmics, DESeq2) |
-| [sartools](sartools/) | `gcfntnu/sartools` | `gcfntnu/r-base-conda:4.5.3` | `1.8.2` | SARTools differential analysis reports |
+| [sartools](sartools/) | `gcfntnu/sartools` | `gcfntnu/r-base-conda:4.5.3` | `1.8.2-1` | SARTools differential analysis reports |
 | [scallop](scallop/) | `gcfntnu/scallop` | `gcfntnu/python-base-conda:4.10.3` | `0.10.4` | Scallop transcript assembly |
 | [taco](taco/) | `gcfntnu/taco` | `gcfntnu/python-base-conda:3.7` | `0.7.3` | TACO transcriptome meta-assembly |
 | [strawberry](strawberry/) | — | `debian:jessie-slim` |  | Strawberry transcript assembly and quantification |
@@ -154,7 +154,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [seurat](seurat/) | `gcfntnu/seurat` | `gcfntnu/r-base:3.6.0` | `dev-3.0.1` | Seurat (`Dockerfile.dev` builds the development tag) |
 | [mapmycells](mapmycells/) | `gcfntnu/mapmycells` | `gcfntnu/python-base-conda:3.12` |  | Allen Institute MapMyCells cell-type mapping |
 | [rapids-scanpy](rapids-scanpy/) | `gcfntnu/rapids-scanpy` | `ghcr.io/scverse/rapids-singlecell-cu12:v0.17.0` | `0.17.0` | GPU single-cell analysis (rapids-singlecell) with CellTypist |
-| [orthogene](orthogene/) | `gcfntnu/orthogene` | `gcfntnu/r-base-conda:4.5.3` | `1.12.0` | orthogene ortholog mapping |
+| [orthogene](orthogene/) | `gcfntnu/orthogene` | `gcfntnu/r-base-conda:4.5.3` | `1.16.1` | orthogene ortholog mapping |
 | [trust4](trust4/) | `gcfntnu/trust4` | `gcfntnu/build-base:20.04` |  | TRUST4 TCR/BCR reconstruction |
 | [sctk](sctk/) | `gcfntnu/sctk` | `gcfntnu/python-base-conda:3.9` | `0.2.2` (hard-coded in `auto_qc.smk`) | sctk single-cell QC (scanpy 1.9.3) |
 | [cellsnp-lite](cellsnp-lite/) | `gcfntnu/cellsnp-lite` | `ubuntu:22.04` | `1.2.4` | cellsnp-lite allele counting |
