@@ -1,4 +1,4 @@
-FROM gcfntnu/r-base-conda:4.0.5
+FROM gcfntnu/r-base-conda:4.2.3
 
 #RUN mamba install --yes mysql-libs zstd
 #RUN conda list
@@ -18,7 +18,6 @@ RUN mamba install  --yes \
     bioconductor-enhancedvolcano \
     bioconductor-complexheatmap \
     bioconductor-wiggleplotr \
-    r-heatmaply \
     r-patchwork \
     r-autoplotly \
     r-fansi \
@@ -31,7 +30,6 @@ RUN mamba install  --yes \
     font-ttf-ubuntu \
     r-optparse \
     bioconductor-edger \
-    r-plotly \
     r-locfdr \
     bioconductor-sva \
     bioconductor-ihw \
@@ -45,7 +43,6 @@ RUN mamba install  --yes \
     bioconductor-biobroom \
     bioconductor-sva \
     bioconductor-gwena \
-    bioconductor-mixomics \
     bioconductor-apeglm\
     bioconductor-genefilter \
     bioconductor-deseq2 && \

@@ -1,4 +1,4 @@
-FROM gcfntnu/rnaseq:1.3
+FROM gcfntnu/rnaseq:1.4
 
 RUN mamba install -y -q \
   nodejs \
