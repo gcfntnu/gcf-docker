@@ -70,7 +70,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [python-base-conda](python-base-conda/) | `gcfntnu/python-base-conda` | `anaconda/miniconda:${MINICONDA_VERSION}` |  | Miniconda with one Python version; strict conda-forge > bioconda > defaults channels |
 | [r-base-conda](r-base-conda/) | `gcfntnu/r-base-conda` | `gcfntnu/python-base-conda:3.12` |  | R from conda-forge on `python-base-conda` |
 | [python-default](python-default/) | `gcfntnu/python-default` | `gcfntnu/python-base-conda:3.12` | `3.12-1` | Default gcf-workflows container: pandas, polars, SciPy, PyArrow and friends, pinned in `env.yml` |
-| [r-default](r-default/) | — | `gcfntnu/r-base-conda:4.5.3` | `4.5.3` | Default R container: tidyverse, data.table, argparse/optparse, Cairo, hdf5r |
+| [r-default](r-default/) | `gcfntnu/r-default` | `gcfntnu/r-base-conda:4.5.3` | `4.5.3` | Default R container: tidyverse, data.table, argparse/optparse, Cairo, hdf5r |
 | [r-base](r-base/) | `gcfntnu/r-base` | `bioconductor/bioconductor_docker:latest` |  | Legacy R base on `bioconductor/bioconductor_docker` |
 | [python-base](python-base/) | `gcfntnu/python-base` | `python:3.9-slim` |  | Legacy `python:3.9-slim` base |
 | [python2-base](python2-base/) | `gcfntnu/python2-base` | `python:2.7-slim` |  | Legacy Python 2.7 base |
@@ -304,6 +304,5 @@ docker buildx imagetools inspect gcfntnu/<image>:<tag>    # the published digest
 
 As of November 2026:
 
-- **`r-base-conda:4.5.3` and `r-default:4.5.3` are not published**, although the Dockerfiles build them and gcf-workflows' `r-default` key names `r-default:4.5.3`. No workflow rule uses that key yet. Images that build on `r-base-conda:4.5.3` (`r-default`, `sartools`, `orthogene`) need it built locally first, or published ([gcf-workflows#293](https://github.com/gcfntnu/gcf-workflows/issues/293)).
 - **`gcfntnu/cellbrowser` is selected by gcf-workflows but has no directory here and no published image.** The only rules that use it are in a file the workflows never load ([gcf-workflows#292](https://github.com/gcfntnu/gcf-workflows/issues/292)).
 - Many older images use bases that are no longer built from this repository (`python-base-conda:3.7`, `4.8.2`, `4.10.3` and others), unpinned `latest` bases, or tags without a recorded build revision. Rebuilding them from today's recipes may not reproduce the published image.
