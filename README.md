@@ -204,7 +204,7 @@ A dash under **Image** means no published image was found for the directory on D
 | Directory | Image | Base | Used by gcf-workflows | Description |
 | --- | --- | --- | --- | --- |
 | [jupyterlab-base](jupyterlab-base/) | `gcfntnu/jupyterlab-base` | `gcfntnu/python-base-conda:4.8.2` |  | JupyterLab base |
-| [jupyterlab-scanpy](jupyterlab-scanpy/) | `gcfntnu/jupyterlab-scanpy` | `gcfntnu/scanpy:latest` | `1.12.3` | JupyterLab on `scanpy` |
+| [jupyterlab-scanpy](jupyterlab-scanpy/) | `gcfntnu/jupyterlab-scanpy` | `gcfntnu/scanpy:1.12.3 (digest)` | `1.12.3` | JupyterLab on `scanpy`; runs the singlecell `notebook:` rules, so its snakemake must equal gcf-workflows' Snakemake |
 | [jupyterlab-rnaseq](jupyterlab-rnaseq/) | `gcfntnu/jupyterlab-rnaseq` | `gcfntnu/rnaseq:1.3` | `1.3` | JupyterLab on `rnaseq` |
 | [jupyterlab-diff-exprs](jupyterlab-diff-exprs/) | `gcfntnu/jupyterlab-diff-exprs` | `gcfntnu/diff-exprs:1.3` | `1.2` | JupyterLab on `diff-exprs` |
 | [jupyterlab-co-exprs](jupyterlab-co-exprs/) | `gcfntnu/jupyterlab-co-exprs` | `gcfntnu/co-exprs:1.0` | `1.0` | JupyterLab on `co-exprs` |

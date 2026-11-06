@@ -1,0 +1,9 @@
+# Installed with pip on gcfntnu/scanpy, constrained to the base's packages (see Dockerfile).
+# snakemake is pinned in the Dockerfile (SNAKEMAKE_VER).
+jupyterlab==4.6.5
+notebook==7.6.4
+nbformat==5.11.1
+nbconvert==7.17.2
+ipykernel==7.4.0
+papermill==2.7.0
+jupyterlab_code_formatter==3.1.0
