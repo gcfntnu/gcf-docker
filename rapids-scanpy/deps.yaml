@@ -1,0 +1,36 @@
+name: base
+
+channels:
+  - rapidsai
+  - nvidia
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.13
+
+  # RAPIDS / CUDA
+  - rapids=26.08
+  - cuda-version=12.9
+  - cudnn
+  - cutensor
+  - cusparselt
+  
+  # single-cell / annotation
+  - celltypist=1.7.1
+
+  # I/O
+  - pyarrow
+
+  # plotting
+  - matplotlib
+  - seaborn
+  - fonts-conda-forge
+  
+  # utilities
+  - pip
+
+  - pip:
+      - rapids-singlecell-cu12==0.16.1
+      - marsilea
+      - mpl-fontkit
