@@ -212,7 +212,6 @@ A dash under **Image** means no published image was found for the directory on D
 | [jupyterlab-rnbeads](jupyterlab-rnbeads/) | `gcfntnu/jupyterlab-rnbeads` | `gcfntnu/rnbeads:2.12.2` |  | JupyterLab on `rnbeads` |
 | [jupyterlab-singlecell](jupyterlab-singlecell/) | `gcfntnu/jupyterlab-singlecell` | `gcfntnu/jupyterlab-base:test2` |  | Legacy single-cell JupyterLab |
 | [microbiome-nb](microbiome-nb/) | — | `gcfntnu/jupyterlab-base:0.1` |  | Microbiome R notebook environment |
-| [sigma2-singleuser](sigma2-singleuser/) | `gcfntnu/sigma2-singleuser` | `jupyter/datascience-notebook:d400e383cc1d` |  | JupyterHub single-user notebook image with CUDA |
 | [rnbeads](rnbeads/) | `gcfntnu/rnbeads` | `gcfntnu/r-base:4.1.2` |  | RnBeads DNA methylation analysis |
 gcf-workflows also uses `gcfntnu/ivar`, which has no directory in this repository. (`gcfntnu/ivar:1.3.1` is a different image from `gcfntnu/signal-ivar`.)
 Other keys in its `docker.config` point to images outside `gcfntnu`, such as BioContainers and StaPH-B.
