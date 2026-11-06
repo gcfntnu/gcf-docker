@@ -1,4 +1,4 @@
-FROM gcfntnu/python-base:3.9
+FROM gcfntnu/python-base-conda:3.11
 
 LABEL \
   author="Arnar Flatberg" \
@@ -12,7 +12,8 @@ RUN \
   g++ && \
   rm -rf /var/lib/apt/lists/*
 
+RUN conda install -y pandas
 
-ARG MULTIQC_BRANCH=master
+ARG MULTIQC_BRANCH=bfq-dev
 ADD https://api.github.com/repos/gcfntnu/MultiQC/git/refs/heads/$MULTIQC_BRANCH multiqc_version
 RUN pip install https://github.com/gcfntnu/MultiQC/archive/$MULTIQC_BRANCH.zip
