@@ -1,0 +1,105 @@
+FROM gcfntnu/python-base-conda:3.11
+
+ENV SCANPY_VER 1.10.3
+
+RUN apt-get update && \
+    apt-get install -y make zlib1g-dev libcurl4-openssl-dev libssl-dev \
+     libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev \
+     libjpeg-dev libpng-dev libtiff-dev pandoc libicu-dev libxml2-dev git \
+     libgit2-dev zlib1g-dev libicu-dev libcurl4-openssl-dev \
+     libglpk-dev libgmp3-dev libpng-dev
+     
+RUN mamba install --quiet --yes \
+    scanpy=$SCANPY_VER \
+    numpy=1.25.2 \
+    numba=0.58.1 \
+    llvmlite=0.41.1 \
+    #scipy=1.13.1 \
+    anndata \
+    scvelo \
+    rpy2 \
+    r-argparse \
+    pip \
+    dask \
+    python-annoy \
+    pypairs \
+    cython \
+    joblib \
+    pandas \
+    scipy \
+    matplotlib \
+    decoupler-py \
+    scikit-learn \
+    ipykernel \
+    gsl \
+    tzlocal \
+    simplegeneric \
+    natsort \
+    h5py \
+    tqdm \
+    patsy \
+    networkx \
+    joblib \
+    numexpr \
+    pytables \
+    seaborn \
+    cmake \
+    statsmodels \
+    python-igraph \
+    louvain \
+    leidenalg \
+    bbknn \
+    loompy \
+    zappy \
+    bioservices \
+    mkl \
+    mkl-include \
+    loompy \
+    scikit-misc \
+    vpolo \
+    pyroe \
+    cvxpy-base \
+    r-biocmanager \
+    r-rgl \
+    r-seurat \
+    r-loom \
+    r-rpresto \
+    r-data.table \
+    r-igraph \
+    r-remotes \    
+    bioconductor-genomeinfodb \
+    bioconductor-genomeinfodbdata \
+    bioconductor-deseq2 \
+    bioconductor-edger \
+    bioconductor-limma \
+    bioconductor-vsn \
+    bioconductor-scran \
+    bioconductor-dropletutils \
+    bioconductor-zellkonverter \
+    bioconductor-biocstyle \
+    bioconductor-singlecellexperiment \
+    bioconductor-summarizedexperiment \
+    bioconductor-biocparallel 
+    
+RUN pip install --no-cache-dir git+https://github.com/theislab/anndata2ri
+#RUN pip install --no-cache-dir git+https://github.com/hanbin973/FastRNA.git
+RUN pip install --no-cache-dir triku
+RUN pip install --no-cache-dir git+https://gitlab.com/georgy.m/conorm.git
+#RUN pip install --no-cache-dir git+https://github.com/sfortma2/scranPY.git
+RUN pip install --no-cache-dir marsilea
+RUN pip install --no-cache-dir piecewise-regression
+RUN pip install --no-cache-dir robustbase
+RUN pip install --no-cache-dir git+https://github.com/IlyaLab/gssnng.git
+
+RUN pip install --no-cache-dir cellbender
+
+
+RUN R --slave -e "BiocManager::install(c('GenomeInfoDb', 'GenomeInfoDbData'), force=TRUE)"
+RUN R --slave -e "remotes::install_github('wmacnair/SampleQC')"
+RUN R --slave -e "remotes::install_github('cellgeni/schard')"
+
+# rpy2
+ENV R_HOME /opt/conda/lib/R
+
+# init zellkonverter
+RUN R -e "library(zellkonverter); example_h5ad <- system.file('extdata', 'krumsiek11.h5ad',package='zellkonverter'); readH5AD(example_h5ad)"
