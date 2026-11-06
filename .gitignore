@@ -148,3 +148,13 @@ files/
 /spring/
 /triku/
 /validrops/
+
+# Local experiments and drafts, not built by gcf-workflows
+/alevinqc/
+/rapids-scanpy/deps.yaml
+/rnbeads/Dockerfile.R
+/rnbeads/Dockerfile.conda
+/rnbeads/Dockerfile.conda2
+/scanpy/Dockerfile.1.9.2
+/scanpy/Dockerfile.1.10.3
+/sigma2-singleuser/
