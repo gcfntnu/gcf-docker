@@ -1,18 +1,26 @@
 # GCF MultiQC candidate image
 
-Image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4`** (Linux amd64).
+Candidate image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue7`** (Linux amd64).
 
-This replaces the reporting engine with upstream MultiQC 1.35 and a separate
-`gcf-multiqc==0.1.0rc4` extension. The published candidate is identified by
+The current recipe pins [gcf-multiqc PR 8](https://github.com/gcfntnu/gcf-multiqc/pull/8)
+at `90d3e253f2f837c6779b3c77aa5422f5a9bae117`. GCF fastp reports omit the
+overrepresented-sequence chart and top-sequences table. Other QC plots, raw
+fastp counts and FastQC overrepresentation remain available. Native fastp with
+`gcf_compatibility: false` keeps upstream behavior. The Python base and dependency
+lock remain unchanged. See [candidate validation](VALIDATION-ISSUE7.md) for the
+tested artifact and remaining manual acceptance.
+
+The previous image, `1.35-gcf0.1.0-rc4`, packages upstream MultiQC 1.35 and a separate
+`gcf-multiqc==0.1.0rc4` extension. That artifact is identified by
 `sha256:2c356684c03d24c11e63be5724d4f107c253eccd8be98c236952bd3df5435878`.
-The proposed suite adoption selects that digest through the existing
-`gcf-workflows/docker.config` mapping; publishing an image alone does not switch
-either BFQ or project reporting to it. See [the adoption handoff](ADOPTION.md)
-and [the rc4 validation record](VALIDATION-RC4.md).
+`gcf-workflows/docker.config` selects the reporting image; publishing a new
+candidate alone does not switch BFQ or project reporting to it. The original
+[adoption handoff](ADOPTION.md) and [rc4 validation record](VALIDATION-RC4.md)
+describe the previous artifact.
 
-Fresh seven-fixture integration acceptance passed, including all eight project
-and seven sequencing reports. See the validation record for source checks,
-classified legacy differences and coverage bounds.
+The previous rc4 artifact passed seven-fixture integration acceptance, including
+eight project and seven sequencing reports. That historical acceptance is not
+manual acceptance of the issue-7 candidate.
 
 The rc4 candidate preserves literal General Statistics text and sums BCL Convert
 sample/lane metrics across multiple index rows. These defects were found during
@@ -72,7 +80,7 @@ Use copied inputs and a new output directory. For example:
 mkdir -p reports
 docker run --rm --network none --user "$(id -u):$(id -g)" \
   -v "$PWD/copied-logs:/inputs:ro" -v "$PWD/reports:/output" \
-  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4 \
+  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue7 \
   multiqc --strict --no-version-check --no-ai --no-megaqc-upload \
   -m fastp -m fastqc_rnaseq -m custom_content -o /output /inputs
 ```

@@ -14,8 +14,8 @@ RUN python -m pip install --no-cache-dir --only-binary=:all: --require-hashes \
 FROM runtime AS plugin-build
 
 # Source archive and checksum are immutable release inputs; no moving fork branch.
-ADD --checksum=sha256:24fb1d53dfb14b98e37cdb6e13fd06ce8b2271279038ab3aea34f1f4b1127b41 \
-    https://github.com/gcfntnu/gcf-multiqc/archive/4625e75315f5c89475af5ce70313642f4154ce40.tar.gz \
+ADD --checksum=sha256:e3301c982dd7a86f6cdefee52d53106739d82c4a6f2c93e5b2245ca5a2bff630 \
+    https://github.com/gcfntnu/gcf-multiqc/archive/90d3e253f2f837c6779b3c77aa5422f5a9bae117.tar.gz \
     /tmp/gcf-multiqc.tar.gz
 RUN python -m pip wheel --no-cache-dir --no-deps --no-build-isolation \
       --wheel-dir /dist /tmp/gcf-multiqc.tar.gz
@@ -27,8 +27,8 @@ FROM runtime
 LABEL org.opencontainers.image.title="GCF MultiQC" \
       org.opencontainers.image.description="Upstream MultiQC 1.35 with GCF reporting compatibility extensions" \
       org.opencontainers.image.source="https://github.com/gcfntnu/gcf-multiqc" \
-      org.opencontainers.image.revision="4625e75315f5c89475af5ce70313642f4154ce40" \
-      org.opencontainers.image.version="1.35-gcf0.1.0-rc4" \
+      org.opencontainers.image.revision="90d3e253f2f837c6779b3c77aa5422f5a9bae117" \
+      org.opencontainers.image.version="1.35-gcf0.1.0-rc4-issue7" \
       org.opencontainers.image.licenses="GPL-3.0-or-later"
 
 COPY --from=plugin-build /dist/ /tmp/gcf-wheel/
