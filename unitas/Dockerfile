@@ -1,11 +1,14 @@
 FROM gcfntnu/build-base:22.04
 
-# unitas 1.8.0 with GCF fixes (image tag 1.8.0-3).
+# unitas 1.8.0 with GCF fixes (image tag 1.8.0-4).
 #   1.8.0-1: offline build and workflow fixes, see unitas-1.8.0-1.patch.
 #   1.8.0-2: unitas_build_refdump.sh strips own species prefixes from miRBase hairpin names
 #            (unitas_normalize_hairpin.awk, gcfntnu/gcf-docker#8). unitas.pl is unchanged.
 #   1.8.0-3: unitas_build_refdump.sh --mirna-db mirgenedb builds dumps from MirGeneDB instead of
 #            miRBase (unitas_mirgenedb2mirbase.awk, mirgenedb_species.tsv). unitas.pl is unchanged.
+#   1.8.0-4: unitas_build_refdump.sh downloads miRBase from the release-specific URLs and requires
+#            --mirbase-release; before, it took the current release and only used the option as a
+#            label. unitas.pl is unchanged.
 #
 # The upstream host (www.smallrnagroup.uni-mainz.de) is gone, so the script and SeqMap are
 # supplied locally in files/ (git-ignored; local builds only):
@@ -19,7 +22,7 @@ FROM gcfntnu/build-base:22.04
 # unitas_build_refdump.sh to build reference dumps from Ensembl, GtRNAdb and miRBase or MirGeneDB.
 
 ENV UNITAS_VERSION=1.8.0
-ENV UNITAS_BUILD=1.8.0-3
+ENV UNITAS_BUILD=1.8.0-4
 ARG UNITAS_PATCH=unitas-1.8.0-1.patch
 ENV PATH=/opt/unitas:$PATH
 
