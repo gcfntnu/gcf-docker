@@ -2,9 +2,9 @@
 
 9 November 2026. This candidate packages
 [gcf-multiqc PR 8](https://github.com/gcfntnu/gcf-multiqc/pull/8), which hides the
-GCF fastp overrepresented-sequence chart and top-sequences table. Manual report
-acceptance is pending. Historical rc4 operational acceptance does not establish
-acceptance of this candidate.
+GCF fastp overrepresented-sequence chart and top-sequences table. The local
+reporting-only replay below passed. Historical rc4 operational acceptance does
+not establish wider operational acceptance of this candidate.
 
 ## Artifact
 
@@ -61,8 +61,32 @@ coordinates an isolated branch selecting this digest in `docker.config`.
 After manual acceptance, merge the plugin, image-recipe and workflow-selection
 PRs in that order. Production promotion and deployment remain separate steps.
 
-Manual acceptance should render copied project QC logs into a new output
-directory, verify both fastp overrepresentation displays are absent, and review
-the retained FastQC sections, other QC plots, statistics and raw exports.
+Manual acceptance can render copied project QC logs into a new output directory
+and review the retained QC sections, statistics and raw exports. The local replay
+below completed this reporting-only check on existing output.
 No scientific workflow execution, production configuration change or operational
 report regeneration was performed as part of these image checks.
+
+## Local existing-output replay
+
+The published candidate was exercised locally on copied existing QC outputs,
+using the original report configuration and module selection, with strict error
+checking and interactive charts. The image ran as non-root with no network,
+read-only inputs/root filesystem and separate local output and cache directories.
+BFQ and scientific workflows were not started.
+
+SHA-256 verified the input copy and confirmed its bytes remained unchanged after
+rendering. All retained General Statistics values/headers, raw module exports
+and serialized plot models match the original delivered report exactly. The
+only removed plot models are `fastp_overrepresented_sequences_plot` and
+`fastp_top_overrepresented_sequences_table`. Fastp raw records and FastQC read
+counts were additionally checked directly against the copied producer inputs.
+
+Offline Chrome rendered the retained charts and exercised the fastp R1/R2
+before/after filtering tabs. It reported no JavaScript errors, console errors,
+failed requests or broken images. Fastp's two displays and navigation links
+are absent; the FastQC overrepresentation sections remain available.
+
+This reporting-only replay passed. It does not exercise BFQ orchestration or
+the server's Apptainer wrapper. Original server output remains untouched; inputs,
+generated reports, screenshots and detailed evidence remain private.
