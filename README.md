@@ -261,8 +261,8 @@ cd star
 
 The script:
 
-1. builds `Dockerfile` with `--no-cache` as `gcfntnu/<directory>:<tag>` and `gcfntnu/<directory>:latest`, writing the output to `build.log`;
-2. pushes those two tags, `gcfntnu/<directory>:<tag>` and `gcfntnu/<directory>:latest`, and no other local tags of the image;
+1. builds `Dockerfile` with `--no-cache` as `gcfntnu/<directory>:<tag>`, writing the output to `build.log`;
+2. pushes that tag only: not `latest`, and no other local tags of the image;
 3. if the directory has a `dependencies.txt`, does the same for each directory listed there, under the same tag (for example `scanpy/dependencies.txt` lists `jupyterlab-scanpy`, so `scanpy:1.12.3` also builds and pushes `jupyterlab-scanpy:1.12.3`).
 
 It runs plain `docker`, so you need to be in the `docker` group, and it pushes with your own `docker login`. Set `DOCKER` to use another command, for example `DOCKER="sudo docker" ../bin/build_tag_push_gcfntnu.sh <tag>`; `sudo` then pushes with root's Docker login, not yours. It prints each command before running it and stops at the first failing build. Blank lines in `dependencies.txt` are skipped. Before running it:
@@ -272,7 +272,7 @@ It runs plain `docker`, so you need to be in the `docker` group, and it pushes w
 
 ### By hand
 
-For other names, variant Dockerfiles, or when you don't want to push `latest`:
+For other names or variant Dockerfiles:
 
 ```bash
 cd <image>
