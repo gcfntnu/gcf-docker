@@ -172,6 +172,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [mirtrace](mirtrace/) | `gcfntnu/mirtrace` | `gcfntnu/python-base-conda:3.7` | `1.0.1` | miRTrace small RNA QC |
 | [mirge](mirge/) | `gcfntnu/mirge` | `gcfntnu/python2-base-conda:2.7` |  | miRge (Python 2) |
 | [mirge3](mirge3/) | `gcfntnu/mirge3` | `gcfntnu/python-base-conda:4.10.3` |  | miRge3 |
+| [mirge3-build](mirge3-build/) | `gcfntnu/mirge3-build` (local build tool, not published) | `mambaorg/micromamba:2.0.5` |  | Builds miRge3 0.1.4 libraries (miRBase, MirGeneDB) for the release store; see `build_mirge3_lib.sh` |
 | [quickmirseq](quickmirseq/) | `gcfntnu/quickmirseq` | `gcfntnu/python-base-conda:3.7` |  | QuickMIRSeq |
 | [seqbuster](seqbuster/) | `gcfntnu/seqbuster` | `gcfntnu/python-base-conda:3.7` |  | SeqBuster/miraligner |
 | [manatee](manatee/) | `gcfntnu/manatee` | `gcfntnu/python-base-conda:4.10.3` |  | Manatee small RNA quantification |
