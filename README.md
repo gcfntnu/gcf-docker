@@ -288,7 +288,7 @@ docker buildx imagetools inspect gcfntnu/<image>:<tag>    # the published digest
 
 1. **Build the bases first.** If the image builds on a GCF base you changed, build and push that first, or build it locally under the same tag.
 2. **Check the tag is free** before pushing, so an existing tag is not overwritten. `https://hub.docker.com/v2/repositories/gcfntnu/<image>/tags/<tag>` returns 404 for an unused tag.
-3. **Smoke-test the image** with the tool's own command on a tiny synthetic input. For images that gcf-workflows runs, a test under Singularity/Apptainer as a non-root user is the closest match.
+3. **Smoke-test the image** with the tool's own command on a tiny synthetic input. For images that gcf-workflows runs, also run it the way Apptainer will: as a non-root user on a read-only root filesystem, with `docker run --rm --user 1000:1000 --read-only --tmpfs /tmp gcfntnu/<image>:<tag> ...`. Running it under Apptainer itself is not needed here; that happens in gcf-workflows.
 4. **Record the digest** in the pull request. Workflows that need a fixed artifact can pin it (`gcfntnu/<image>@sha256:...`).
 
 ## Changing an image used by gcf-workflows
