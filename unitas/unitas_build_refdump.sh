@@ -3,7 +3,9 @@
 #
 # Downloaded (pinned per run):  Ensembl ncRNA + cDNA (cdna.all), GtRNAdb tRNAs, and the miRNAs:
 #                               miRBase mature + hairpin, or MirGeneDB mature + star + precursors
-#                               (current release of either; --mirna-db).
+#                               (--mirna-db). miRBase comes from the release-specific download
+#                               (--mirbase-release); MirGeneDB from the current files, checked
+#                               against --mirgenedb-release.
 # Reused from an existing dump: piRNA clusters (piRclDB), tRF-1, tRNA leaders, SILVA SSU/LSU.
 #                               These were only ever served by the smallRNAgroup server.
 #
@@ -29,7 +31,8 @@
 #   --ensembl-release  Ensembl release to download, e.g. 116
 #   --outdir           writes UNITAS_refdump_<species>/ and UNITAS_refdump_<species>.tar.gz here
 #   --mirna-db         miRNA database: mirbase (default) or mirgenedb
-#   --mirbase-release  release label for db_versions.info (default: read from www.mirbase.org)
+#   --mirbase-release  miRBase release to download, e.g. 23.1; required with --mirna-db mirbase
+#                      (www.mirbase.org/download_version_files/<release>/)
 #   --mirgenedb-release  MirGeneDB release, checked against the downloaded GFF
 #                      (default: read from mirgenedb.org)
 #   --keep-raw         keep the raw downloads (ensembl_ncRNA, ensembl_cDNA, miRBase_hairpin) in
@@ -48,7 +51,7 @@ while (( $# )); do
         --mirgenedb-release) mirgenedb_release=$2; shift 2 ;;
         --workdir) workdir=$2; shift 2 ;;
         --keep-raw) keep_raw=1; shift ;;
-        -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,39p' "$0"; exit 0 ;;
         *) echo "unitas_build_refdump: unknown argument $1" >&2; exit 2 ;;
     esac
 done
@@ -89,9 +92,11 @@ silva_release=$(static_version 'SILVA rRNA (SSU) database')
 [[ -n $pirc_date && -n $trf1_date && -n $leader_date && -n $silva_release ]] \
     || die "could not read static data versions from $static/db_versions.info"
 
-if [[ $mirna_db == mirbase && -z $mirbase_release ]]; then
-    mirbase_release=$(curl -fsSL --retry 3 https://www.mirbase.org/ | grep -oE 'Version [0-9]+(\.[0-9]+)?' | head -1 | cut -d' ' -f2 || true)
-    [[ -n $mirbase_release ]] || die "could not read the miRBase release from www.mirbase.org; use --mirbase-release"
+# miRBase: always a pinned release. The unversioned download serves whatever is current, so a
+# dump labelled with one release could contain another.
+if [[ $mirna_db == mirbase ]]; then
+    [[ -n $mirbase_release ]] || die "--mirbase-release is required with --mirna-db mirbase (e.g. 23.1)"
+    [[ $mirbase_release =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "--mirbase-release must look like 23.1, got $mirbase_release"
 fi
 if [[ $mirna_db == mirgenedb && -z $mirgenedb_release ]]; then
     mirgenedb_release=$(curl -fsSL --retry 3 https://mirgenedb.org/ | grep -oE 'MirGeneDB [0-9]+(\.[0-9]+)?' | head -1 | cut -d' ' -f2 || true)
@@ -139,7 +144,7 @@ fetch "https://gtrnadb.ucsc.edu/genomes/eukaryota/$gtrnadb-tRNAs.fa" "$src/$trna
 renamed=$workdir/gcf_hairpin_renamed.tsv
 if [[ $mirna_db == mirbase ]]; then
     for f in mature hairpin; do
-        fetch "https://www.mirbase.org/download/$f.fa" "$src/$f.fa" fasta
+        fetch "https://www.mirbase.org/download_version_files/$mirbase_release/$f.fa" "$src/$f.fa" fasta
     done
     # UNITAS names species hairpins from the header's name field; strip the record's own species
     # prefix there so that all miRNAs are reported without it (gcfntnu/gcf-docker#8).
