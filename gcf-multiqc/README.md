@@ -1,21 +1,28 @@
 # GCF MultiQC candidate image
 
-Candidate image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue9`** (Linux amd64).
+Candidate image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue11`** (Linux amd64).
 
-The current recipe pins gcf-multiqc `main` at `665c4a3c02c14f619cc73852c3d8c1cdfbd53c17`, the merge of
-[gcf-multiqc PR 10](https://github.com/gcfntnu/gcf-multiqc/pull/10). It adds
-`gcf_smallrna_cutadapt`, a module selected explicitly for the merged cutadapt
-reports of the gcf-workflows small-RNA cutadapt filter route: every filtering
-category named (5′ adapter artefacts included) and the GCF filter columns in
-General Statistics. Native `cutadapt` is unchanged. It also keeps the issue-7
-change: GCF fastp reports omit the overrepresented-sequence chart and
-top-sequences table. The Python base and dependency lock remain unchanged. See
-[candidate validation](VALIDATION-ISSUE9.md) for the tested artifact.
+The current recipe pins gcf-multiqc `main` at `fca419bbb1d5812f04129710741b2bb7a9209f6f`, the merge of
+[gcf-multiqc PR 12](https://github.com/gcfntnu/gcf-multiqc/pull/12). Its UNITAS
+module shows misc_RNA (labelled "misc_RNA (Y RNA, 7SK, 7SL, …)"; mostly Y RNA
+fragments in plasma) and lncRNA (also Ensembl's older `lincRNA`) as categories
+instead of "other", and `gcf_smallrna_cutadapt` names the third pass of the
+gcf-workflows small-RNA cutadapt route ("Untrimmed 3′ adapter or primer
+sequence"). Everything else is as in the issue-9 candidate: `gcf_smallrna_cutadapt`
+for the merged small-RNA cutadapt reports, and GCF fastp reports without the
+overrepresented-sequence chart and table. The Python base and dependency lock
+remain unchanged. See [candidate validation](VALIDATION-ISSUE11.md) for the tested
+artifact.
+
+The issue-9 candidate, `1.35-gcf0.1.0-rc4-issue9`
+(`sha256:58df7c7fadc670cdb41deab8b9e208f59282eabaa87177936ce4981d1a885f8a`, plugin
+`665c4a3c02c14f619cc73852c3d8c1cdfbd53c17`), is the image gcf-workflows selects until it switches; its record is
+[VALIDATION-ISSUE9.md](VALIDATION-ISSUE9.md).
 
 The issue-7 candidate, `1.35-gcf0.1.0-rc4-issue7`
 (`sha256:d6acc3ebe9eb23323cfd37ef730c988f0ae2c0d51d7629b04ebe7bbd614778ab`, plugin
-`90d3e253f2f837c6779b3c77aa5422f5a9bae117`), is the image gcf-workflows selects
-until it switches; its record is [VALIDATION-ISSUE7.md](VALIDATION-ISSUE7.md).
+`90d3e253f2f837c6779b3c77aa5422f5a9bae117`), was selected before the issue-9 candidate; its record is
+[VALIDATION-ISSUE7.md](VALIDATION-ISSUE7.md).
 
 The previous image, `1.35-gcf0.1.0-rc4`, packages upstream MultiQC 1.35 and a separate
 `gcf-multiqc==0.1.0rc4` extension. That artifact is identified by
@@ -27,7 +34,7 @@ describe the previous artifact.
 
 The previous rc4 artifact passed seven-fixture integration acceptance, including
 eight project and seven sequencing reports. That historical acceptance is not
-manual acceptance of the issue-7 or issue-9 candidates.
+manual acceptance of the issue-7, issue-9 or issue-11 candidates.
 
 The rc4 candidate preserves literal General Statistics text and sums BCL Convert
 sample/lane metrics across multiple index rows. These defects were found during
@@ -87,7 +94,7 @@ Use copied inputs and a new output directory. For example:
 mkdir -p reports
 docker run --rm --network none --user "$(id -u):$(id -g)" \
   -v "$PWD/copied-logs:/inputs:ro" -v "$PWD/reports:/output" \
-  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue9 \
+  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue11 \
   multiqc --strict --no-version-check --no-ai --no-megaqc-upload \
   -m fastp -m fastqc_rnaseq -m custom_content -o /output /inputs
 ```
