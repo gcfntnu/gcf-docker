@@ -1,14 +1,21 @@
 # GCF MultiQC candidate image
 
-Candidate image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue7`** (Linux amd64).
+Candidate image: **`gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue9`** (Linux amd64).
 
-The current recipe pins [gcf-multiqc PR 8](https://github.com/gcfntnu/gcf-multiqc/pull/8)
-at `90d3e253f2f837c6779b3c77aa5422f5a9bae117`. GCF fastp reports omit the
-overrepresented-sequence chart and top-sequences table. Other QC plots, raw
-fastp counts and FastQC overrepresentation remain available. Native fastp with
-`gcf_compatibility: false` keeps upstream behavior. The Python base and dependency
-lock remain unchanged. See [candidate validation](VALIDATION-ISSUE7.md) for the
-tested artifact and remaining manual acceptance.
+The current recipe pins gcf-multiqc `main` at `665c4a3c02c14f619cc73852c3d8c1cdfbd53c17`, the merge of
+[gcf-multiqc PR 10](https://github.com/gcfntnu/gcf-multiqc/pull/10). It adds
+`gcf_smallrna_cutadapt`, a module selected explicitly for the merged cutadapt
+reports of the gcf-workflows small-RNA cutadapt filter route: every filtering
+category named (5′ adapter artefacts included) and the GCF filter columns in
+General Statistics. Native `cutadapt` is unchanged. It also keeps the issue-7
+change: GCF fastp reports omit the overrepresented-sequence chart and
+top-sequences table. The Python base and dependency lock remain unchanged. See
+[candidate validation](VALIDATION-ISSUE9.md) for the tested artifact.
+
+The issue-7 candidate, `1.35-gcf0.1.0-rc4-issue7`
+(`sha256:d6acc3ebe9eb23323cfd37ef730c988f0ae2c0d51d7629b04ebe7bbd614778ab`, plugin
+`90d3e253f2f837c6779b3c77aa5422f5a9bae117`), is the image gcf-workflows selects
+until it switches; its record is [VALIDATION-ISSUE7.md](VALIDATION-ISSUE7.md).
 
 The previous image, `1.35-gcf0.1.0-rc4`, packages upstream MultiQC 1.35 and a separate
 `gcf-multiqc==0.1.0rc4` extension. That artifact is identified by
@@ -20,7 +27,7 @@ describe the previous artifact.
 
 The previous rc4 artifact passed seven-fixture integration acceptance, including
 eight project and seven sequencing reports. That historical acceptance is not
-manual acceptance of the issue-7 candidate.
+manual acceptance of the issue-7 or issue-9 candidates.
 
 The rc4 candidate preserves literal General Statistics text and sums BCL Convert
 sample/lane metrics across multiple index rows. These defects were found during
@@ -80,7 +87,7 @@ Use copied inputs and a new output directory. For example:
 mkdir -p reports
 docker run --rm --network none --user "$(id -u):$(id -g)" \
   -v "$PWD/copied-logs:/inputs:ro" -v "$PWD/reports:/output" \
-  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue7 \
+  gcfntnu/gcf-multiqc:1.35-gcf0.1.0-rc4-issue9 \
   multiqc --strict --no-version-check --no-ai --no-megaqc-upload \
   -m fastp -m fastqc_rnaseq -m custom_content -o /output /inputs
 ```
