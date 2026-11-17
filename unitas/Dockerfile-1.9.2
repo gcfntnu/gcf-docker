@@ -1,0 +1,56 @@
+FROM gcfntnu/build-base:22.04
+
+# Upstream UNITAS 1.9.2 (https://github.com/d-gebert/unitas, by Daniel Gebert; the README says MIT,
+# the repository has no LICENSE file yet), image tag 1.9.2-<n>. Built with
+#   docker build -f Dockerfile-1.9.2 -t gcfntnu/unitas:1.9.2-<n> .
+# The main Dockerfile (1.8.0-<n>) stays: unitas_build_refdump.sh needs its patched -refdump code.
+#
+# Unpatched upstream script at a fixed commit, checked by SHA-256, with only these changes:
+#   - exit-codes-1.9.2.pl: errors exit 1 (upstream exits 0), and the run fails when a
+#     per-file worker fails; $unitas_version says 1.9.2 (upstream left 1.9.1).
+#   - SeqMap 1.0.13 compiled from the source UNITAS itself uses, and unitas.pl is
+#     unitas-1.9.2-wrapper.sh, which links it into the working directory.
+#
+# Annotation runs are offline when the working directory has a complete UNITAS_refdump_<species>
+# (db_versions.info, ncRNA.fas, miRBase_mature, miRBase_hairpin_<sp>.fas,
+# miRBase_hairpin_non-<sp>.fas, and cDNA.fas unless -skip_cDNA). With an incomplete dump, -latest_ref
+# or -refdump, UNITAS 1.9.2 downloads current references from Ensembl, miRBase, GtRNAdb and
+# piRNAclusterDB.
+
+ENV UNITAS_VERSION=1.9.2
+ENV UNITAS_BUILD=1.9.2-1
+ARG UNITAS_COMMIT=bd87b6561fb3e2345f8ab1b3db446016c49c305c
+ARG UNITAS_SHA256=97b2cdec3aa323aceed555c15a76add7dd4e6beadcd4274f30c98e284bc9e7d5
+ARG SEQMAP_SHA256=440f5d57d696d2018e5dfc25484e6ec8c2c4c18fd5819dda1f38fd320fa35686
+ENV PATH=/opt/unitas:$PATH
+
+# Perl modules unitas_1.9.2.pl checks for at start-up (the others are core)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    perl \
+    libwww-perl \
+    liblwp-protocol-https-perl \
+    libarchive-extract-perl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+WORKDIR /opt/unitas
+COPY exit-codes-1.9.2.pl unitas-1.9.2-wrapper.sh ./
+RUN curl -fsSL -o unitas_1.9.2.pl https://raw.githubusercontent.com/d-gebert/unitas/${UNITAS_COMMIT}/unitas_1.9.2.pl \
+    && echo "${UNITAS_SHA256}  unitas_1.9.2.pl" | sha256sum -c - \
+    && sed -i 's/\r$//' unitas_1.9.2.pl \
+    && perl -0 -i exit-codes-1.9.2.pl unitas_1.9.2.pl \
+    && perl -c unitas_1.9.2.pl \
+    && curl -fsSL -o seqmap.zip https://jhui2014.github.io/seqmap/download/seqmap-1.0.13-src.zip \
+    && echo "${SEQMAP_SHA256}  seqmap.zip" | sha256sum -c - \
+    && unzip -q seqmap.zip \
+    && g++ -O3 -m64 -o seqmap.exe seqmap-1.0.13-src/match.cpp \
+    && rm -r seqmap.zip seqmap-1.0.13-src exit-codes-1.9.2.pl \
+    && mv unitas-1.9.2-wrapper.sh unitas.pl \
+    && chmod 755 unitas.pl seqmap.exe && chmod 644 unitas_1.9.2.pl \
+    && seqmap.exe 2>&1 | grep -q 'SeqMap: Short Sequence Mapping Tool' \
+    && cd /tmp \
+    && unitas.pl -h | grep -q 'unitas' \
+    && rm -f seqmap.exe \
+    && { unitas.pl -quick -slow -input x -species homo_sapiens > /dev/null; test $? -eq 1; } \
+    && rm -f /tmp/seqmap.exe
+WORKDIR /

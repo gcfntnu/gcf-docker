@@ -7,3 +7,5 @@
 !unitas_normalize_hairpin.awk
 !unitas_mirgenedb2mirbase.awk
 !mirgenedb_species.tsv
+!exit-codes-1.9.2.pl
+!unitas-1.9.2-wrapper.sh

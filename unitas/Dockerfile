@@ -10,8 +10,10 @@ FROM gcfntnu/build-base:22.04
 #            --mirbase-release; before, it took the current release and only used the option as a
 #            label. unitas.pl is unchanged.
 #
-# The upstream host (www.smallrnagroup.uni-mainz.de) is gone, so the script and SeqMap are
-# supplied locally in files/ (git-ignored; local builds only):
+# The old upstream host (www.smallrnagroup.uni-mainz.de) is gone, so the script and SeqMap are
+# supplied locally in files/ (git-ignored; local builds only). UNITAS is maintained again at
+# https://github.com/d-gebert/unitas; Dockerfile-1.9.2 builds that version for annotation. This
+# image stays for unitas_build_refdump.sh, which needs the patched 1.8.0 -refdump code (-mirror).
 #   files/unitas_1.8.0.pl  copy from the published image:
 #       docker create --name u gcfntnu/unitas:1.8.0 && docker cp u:/opt/unitas/unitas_1.8.0.pl files/ && docker rm u
 #   files/seqmap.exe       SeqMap 1.0.13 x86-64 Linux build (needs glibc >= 2.29)

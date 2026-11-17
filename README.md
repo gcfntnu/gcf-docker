@@ -168,7 +168,7 @@ A dash under **Image** means no published image was found for the directory on D
 
 | Directory | Image | Base | Used by gcf-workflows | Description |
 | --- | --- | --- | --- | --- |
-| [unitas](unitas/) | `gcfntnu/unitas` | `gcfntnu/build-base:22.04` | `1.8.0-1` | unitas small RNA annotation, offline build; see the Dockerfile header |
+| [unitas](unitas/) | `gcfntnu/unitas` | `gcfntnu/build-base:22.04` | `1.8.0-1` | unitas small RNA annotation. `Dockerfile`: 1.8.0-`<n>`, offline build with the reference dump builder; `Dockerfile-1.9.2`: upstream UNITAS 1.9.2 (d-gebert/unitas) for annotation. See the Dockerfile headers |
 | [mirtrace](mirtrace/) | `gcfntnu/mirtrace` | `gcfntnu/python-base-conda:3.7` | `1.0.1` | miRTrace small RNA QC |
 | [mirge](mirge/) | `gcfntnu/mirge` | `gcfntnu/python2-base-conda:2.7` |  | miRge (Python 2) |
 | [mirge3](mirge3/) | `gcfntnu/mirge3` | `gcfntnu/python-base-conda:4.10.3` |  | miRge3 |
