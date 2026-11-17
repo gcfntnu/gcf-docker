@@ -1,0 +1,57 @@
+--- a/TEsmall/alignment.py
++++ b/TEsmall/alignment.py
+@@ -4,21 +4,25 @@
+ import subprocess
+ 
+ def trim_3p_adapters(fastq, prefix, adapter, minlen, maxlen):
+-    """Find and remove adapter sequences from the input FASTQ file."""
++    """Find and remove adapter sequences from the input FASTQ file.
++    adapter None (--no-trim): only the length filter, no adapter removal."""
+     outfile = "{0}.trimmed1.fastq".format(prefix)
+     logfile = "{0}.cutadapt1.log".format(prefix)
+-    command = 'cutadapt -a "{0}" -m {1} -M {2} -o "{3}" "{4}" > "{5}"'
+-    command = command.format(adapter, minlen, maxlen, outfile, fastq, logfile)
++    adapter_arg = '' if adapter is None else '-a "{0}" '.format(adapter)
++    command = 'cutadapt {0}-m {1} -M {2} -o "{3}" "{4}" > "{5}"'
++    command = command.format(adapter_arg, minlen, maxlen, outfile, fastq, logfile)
+     logging.info("Trimming 3' adapters...")
+     subprocess.call(command, shell=True)
+     return outfile
+ 
+ def trim_5p_adapters(fastq, prefix, adapter, minlen, maxlen):
+-    """Find and remove adapter sequences from the input FASTQ file."""
++    """Find and remove adapter sequences from the input FASTQ file.
++    adapter None (--no-trim): only the length filter, no adapter removal."""
+     outfile = "{0}.trimmed2.fastq".format(prefix)
+     logfile = "{0}.cutadapt2.log".format(prefix)
+-    command = 'cutadapt -g "{0}" -m {1} -M {2} -o "{3}" "{4}" > "{5}"'
+-    command = command.format(adapter, minlen, maxlen, outfile, fastq, logfile)
++    adapter_arg = '' if adapter is None else '-g "{0}" '.format(adapter)
++    command = 'cutadapt {0}-m {1} -M {2} -o "{3}" "{4}" > "{5}"'
++    command = command.format(adapter_arg, minlen, maxlen, outfile, fastq, logfile)
+     logging.info("Trimming 5' adapters...")
+     subprocess.call(command, shell=True)
+     return outfile
+--- a/TEsmall/command_line.py
++++ b/TEsmall/command_line.py
+@@ -17,6 +17,9 @@
+         default='TGGAATTCTCGGGTGCCAAGG', help="Sequence of an adapter that was "
+         "ligated to the 3' end. The adapter itself and anything that follows "
+         "is trimmed. (default: %(default)s)")
++    parser.add_argument("--no-trim", action="store_true", help="Input is "
++        "already adapter-trimmed: skip both adapter removal steps (3' and the "
++        "built-in 5' adapter) and apply only the -m/-M length filter.")
+     parser.add_argument("-m", "--minlen", metavar="INT", type=int,
+         default=16, help="Discard trimmed reads that are shorter than INT. "
+         "Reads that are too short even before adapter removal are also "
+@@ -71,8 +74,8 @@
+     else:
+         assert len(set(args.label)) == len(args.fastq)
+     for label, fastq in zip(args.label, args.fastq):
+-        trimmed_fastq = trim_3p_adapters(fastq, label, args.adapter, args.minlen, args.maxlen)
+-        trimmed_fastq = trim_5p_adapters(trimmed_fastq, label, "GTTCAGAGTTCTACAGTCCGACGATC", args.minlen, args.maxlen)
++        trimmed_fastq = trim_3p_adapters(fastq, label, None if args.no_trim else args.adapter, args.minlen, args.maxlen)
++        trimmed_fastq = trim_5p_adapters(trimmed_fastq, label, None if args.no_trim else "GTTCAGAGTTCTACAGTCCGACGATC", args.minlen, args.maxlen)
+         btidx = os.path.join(bwtidx, "genome")
+         rbtidx = os.path.join(bwtidx, "rDNA")
+         tbtidx = os.path.join(bwtidx, "tDNA")
