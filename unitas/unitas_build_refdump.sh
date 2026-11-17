@@ -6,8 +6,15 @@
 #                               (--mirna-db). miRBase comes from the release-specific download
 #                               (--mirbase-release); MirGeneDB from the current files, checked
 #                               against --mirgenedb-release.
-# Reused from an existing dump: piRNA clusters (piRclDB), tRF-1, tRNA leaders, SILVA SSU/LSU.
-#                               These were only ever served by the smallRNAgroup server.
+#                               piRNA clusters from piRNAclusterDB (www.pirnaclusterdb.org; the
+#                               files are unchanged since the 2022 dumps), dated by download as
+#                               UNITAS does.
+#                               SILVA 132 SSURef/LSURef rRNA, md5-checked against SILVA's files and
+#                               selected by the species' NCBI taxid (unitas_silva_species.awk):
+#                               the records of the old server's SILVA files. Later SILVA releases
+#                               do not fit (see the awk header).
+# Reused from an existing dump: tRF-1 and tRNA leaders, which were only ever served by the
+#                               smallRNAgroup server.
 #
 # The sources are placed in a local mirror of the old server layout and processed by unitas' own
 # -refdump code (unitas.pl -mirror), so the files are formatted exactly as UNITAS expects.
@@ -27,7 +34,7 @@
 #                                [--mirna-db mirbase|mirgenedb] [--mirbase-release X]
 #                                [--mirgenedb-release X] [--workdir DIR] [--keep-raw]
 #   --species          homo_sapiens | mus_musculus | rattus_norvegicus
-#   --static-dir       existing UNITAS_refdump_<species> to take the static files from
+#   --static-dir       existing UNITAS_refdump_<species> to take tRF-1 and tRNA leaders from
 #   --ensembl-release  Ensembl release to download, e.g. 116
 #   --outdir           writes UNITAS_refdump_<species>/ and UNITAS_refdump_<species>.tar.gz here
 #   --mirna-db         miRNA database: mirbase (default) or mirgenedb
@@ -51,13 +58,15 @@ while (( $# )); do
         --mirgenedb-release) mirgenedb_release=$2; shift 2 ;;
         --workdir) workdir=$2; shift 2 ;;
         --keep-raw) keep_raw=1; shift ;;
-        -h|--help) sed -n '2,39p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,46p' "$0"; exit 0 ;;
         *) echo "unitas_build_refdump: unknown argument $1" >&2; exit 2 ;;
     esac
 done
 die() { echo "unitas_build_refdump: $*" >&2; exit 1; }
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 normalize_awk=$here/unitas_normalize_hairpin.awk
+silva_awk=$here/unitas_silva_species.awk
+[[ -r $silva_awk ]] || die "missing $silva_awk"
 mirgenedb_awk=$here/unitas_mirgenedb2mirbase.awk
 mirgenedb_species=$here/mirgenedb_species.tsv
 case $mirna_db in
@@ -70,27 +79,25 @@ for name in species static ensembl outdir; do
 done
 [[ $ensembl =~ ^[0-9]+$ ]] || die "--ensembl-release must be a number, got $ensembl"
 
-# Ensembl species name and assembly, GtRNAdb genome. GtRNAdb has no rat GRCr8 (rn8) build; rn7 is
-# the newest.
+# Ensembl species name and assembly, GtRNAdb genome, NCBI taxid (for SILVA). GtRNAdb has no rat
+# GRCr8 (rn8) build; rn7 is the newest.
 case $species in
-    homo_sapiens)      ens_name=Homo_sapiens;      ens_asm=GRCh38; gtrnadb=Hsapi38/hg38; org=Human; code=hsa ;;
-    mus_musculus)      ens_name=Mus_musculus;      ens_asm=GRCm39; gtrnadb=Mmusc39/mm39; org=Mouse; code=mmu ;;
-    rattus_norvegicus) ens_name=Rattus_norvegicus; ens_asm=GRCr8;  gtrnadb=Rnorv7/rn7;   org=Rat;   code=rno ;;
+    homo_sapiens)      ens_name=Homo_sapiens;      ens_asm=GRCh38; gtrnadb=Hsapi38/hg38; org=Human; code=hsa; taxid=9606 ;;
+    mus_musculus)      ens_name=Mus_musculus;      ens_asm=GRCm39; gtrnadb=Mmusc39/mm39; org=Mouse; code=mmu; taxid=10090 ;;
+    rattus_norvegicus) ens_name=Rattus_norvegicus; ens_asm=GRCr8;  gtrnadb=Rnorv7/rn7;   org=Rat;   code=rno; taxid=10116 ;;
     *) die "unsupported species $species (homo_sapiens, mus_musculus, rattus_norvegicus)" ;;
 esac
 
-for f in piRclDB tRF-1.fas tRNA_leader.fas SILVA_rRNA.SSU SILVA_rRNA.LSU db_versions.info; do
+for f in tRF-1.fas tRNA_leader.fas db_versions.info; do
     [[ -s $static/$f ]] || die "static dump $static has no $f"
 done
 static_version() {  # value of a db_versions.info line, without "Release " and " (dd.mm.yyyy)"
     sed -n "s/^$1[^.]*\\.\\.* *//p" "$static/db_versions.info" | sed 's/ (dd\.mm\.yyyy)$//; s/^Release //' | head -1
 }
-pirc_date=$(static_version 'piRNA cluster database')
 trf1_date=$(static_version 'tRF-1 sequence data')
 leader_date=$(static_version 'tRNA-leader sequence data')
-silva_release=$(static_version 'SILVA rRNA (SSU) database')
-[[ -n $pirc_date && -n $trf1_date && -n $leader_date && -n $silva_release ]] \
-    || die "could not read static data versions from $static/db_versions.info"
+[[ -n $trf1_date && -n $leader_date ]] || die "could not read static data versions from $static/db_versions.info"
+silva_release=132
 
 # miRBase: always a pinned release. The unversioned download serves whatever is current, so a
 # dump labelled with one release could contain another.
@@ -132,6 +139,12 @@ fetch() {  # url output [kind]; checks that FASTA downloads really are FASTA (no
     mv "$out.part" "$out"
     printf '%s\t%s\t%s\t%s\n' "$(basename "$out")" "$url" "$(sha256sum "$out" | cut -d' ' -f1)" \
         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$sources"
+}
+fetch_md5() {  # url output [kind]: fetch, then check against the <url>.md5 that SILVA publishes
+    local want
+    fetch "$@"
+    want=$(curl -fsSL --retry 3 "$1.md5" | cut -d' ' -f1) || die "download failed: $1.md5"
+    [[ $(md5sum "$2" | cut -d' ' -f1) == "$want" ]] || die "md5 differs from $1.md5"
 }
 
 ens_base=https://ftp.ensembl.org/pub/release-$ensembl/fasta/$species
@@ -187,17 +200,34 @@ for f in mature hairpin; do
     gzip -n "$src/$f.fa"
 done
 
+# piRNA clusters (unitas formats them into piRclDB)
+fetch "https://www.pirnaclusterdb.org/data/FASTA/$ens_name.piRNAclusters.fasta" "$src/piRNAclusters.fasta" fasta
+pirc_date=$(date -u +%d.%m.%Y)
+
+# SILVA rRNA: the species' SSU and LSU Ref entries, in the old server's file layout
+silva=https://ftp.arb-silva.de/release_$silva_release/Exports
+for unit in SSU LSU; do
+    fasta=$src/SILVA_${silva_release}_${unit}Ref_tax_silva.fasta.gz
+    taxmap=$src/taxmap_embl_${unit,,}_ref_$silva_release.txt.gz
+    fetch_md5 "$silva/$(basename "$fasta")" "$fasta" fasta.gz
+    fetch_md5 "$silva/taxonomy/$(basename "$taxmap")" "$taxmap"
+    out=$U/SILVA_rRNA/SILVA_${unit}_$species.fasta
+    awk -v taxid="$taxid" -v unit="$unit" -f "$silva_awk" <(gzip -dc "$taxmap") <(gzip -dc "$fasta") \
+        > "$out" 2> "$workdir/silva_$unit.log" || die "SILVA $unit selection failed: $(cat "$workdir/silva_$unit.log")"
+    cat "$workdir/silva_$unit.log"
+    printf '%s\t%s\t%s\t%s\n' "SILVA_rRNA.$unit" "gcf:unitas_silva_species.awk taxid $taxid" \
+        "$(sha256sum "$out" | cut -d' ' -f1)" "NA" >> "$sources"
+    rm -f "$fasta"
+done
+
 # Static data from the existing dump, in the layout of the old server
-cp "$static/piRclDB" "$src/piRNAclusters.fasta"
 cp "$static/tRF-1.fas" "$U/tRF-1/$species.tRF-1.fas"
 cp "$static/tRNA_leader.fas" "$U/tRNA_leader/$species.tRNA_leader.fas"
-cp "$static/SILVA_rRNA.SSU" "$U/SILVA_rRNA/SILVA_SSU_$species.fasta"
-cp "$static/SILVA_rRNA.LSU" "$U/SILVA_rRNA/SILVA_LSU_$species.fasta"
 printf '%s' "$trf1_date" > "$U/tRF-1/release"
 printf '%s' "$leader_date" > "$U/tRNA_leader/release"
 printf '%s' "$silva_release" > "$U/SILVA_rRNA/release"
 printf 'NA' > "$U/SeqMap/release"
-for f in piRclDB tRF-1.fas tRNA_leader.fas SILVA_rRNA.SSU SILVA_rRNA.LSU; do
+for f in tRF-1.fas tRNA_leader.fas; do
     printf '%s\t%s\t%s\t%s\n' "$f" "static:$static/$f" "$(sha256sum "$static/$f" | cut -d' ' -f1)" "NA" >> "$sources"
 done
 
