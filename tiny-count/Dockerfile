@@ -29,4 +29,5 @@ ENV PATH=/opt/conda/bin:$PATH
 # The version comes from the conda package: upstream's v1.6.0 setup.py still says 1.5.0.
 RUN ls /opt/conda/conda-meta/tiny-count-1.6.0-*.json > /dev/null && \
     for t in tiny-count tiny-collapse bowtie bowtie-build samtools; do command -v $t > /dev/null || { echo "missing $t"; exit 1; }; done && \
-    tiny-count -h > /dev/null && tiny-collapse -h > /dev/null && bowtie --version | head -1 | grep -q "1.3.1"
+    tiny-count -h > /dev/null && tiny-collapse -h > /dev/null && bowtie --version | head -1 | grep -q "1.3.1" && \
+    samtools --version | head -1 | grep -qx "samtools 1.25"

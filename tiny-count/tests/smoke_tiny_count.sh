@@ -7,21 +7,24 @@
 # - syn-miR-A (MIMAT9000001) on the + strand of chr1;
 # - syn-miR-B (MIMAT9000002) at two loci with the same hairpin, chr1 + and chr2 - (the second locus is
 #   ID MIMAT9000002_1, as miRBase names it), so its reads map twice and are divided between the loci;
-# - syn-miR-C (MIMAT9000003) on the - strand of chr2, so the 5' and 3' shifts must follow the strand.
+# - syn-miR-C (MIMAT9000003) on the - strand of chr2, so the 5' shifts and 3' extensions must follow the strand.
 #
 # Rules: mature miRNA features, 5' end at -1, 0 or +1 of the annotated end, up to 4 nt beyond the 3' end,
 # sense strand, 16-28 nt (three "5' anchored" rules with shifts, one per 5' offset).
 # Expected: MIMAT9000001 17 (10 canonical, 4 with 2 nt more at the 3' end, 3 starting 1 nt later; not the
 # 2 reads starting 2 nt later or the 2 antisense reads), MIMAT9000002 and MIMAT9000002_1 3 each (6 reads
-# divided by genomic hits), MIMAT9000003 7 (5 canonical, 2 starting 1 nt earlier). 3 reads with a
-# non-templated 3' base do not align with -v 0.
+# divided by genomic hits), MIMAT9000003 10 (5 canonical, 3 with 2 nt more at the 3' end, 2 starting 1 nt
+# earlier). 3 reads with a non-templated 3' base do not align with -v 0.
 # Usage: tests/smoke_tiny_count.sh [image] [workdir]
+# Each run writes to a new run.XXXXXX folder in workdir (default: a new temporary folder), so a reused workdir
+# cannot pass on an earlier run's tables.
 set -euo pipefail
 image=${1:-gcfntnu/tiny-count:1.6.0-1}
 work=${2:-$(mktemp -d)}
 mkdir -p "$work"
+run=$(mktemp -d "$(cd "$work" && pwd)/run.XXXXXX")   # absolute: docker -v takes a bare name for a named volume
 docker run --rm --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp -e HOME=/tmp \
-    -v "$work:/work" -w /work "$image" bash -c '
+    -v "$run:/work" -w /work "$image" bash -c '
 set -euo pipefail
 python - <<PY
 import random
@@ -51,7 +54,7 @@ with open("mirna.gff3", "w") as fh:
 a, b, c = mat(hp_a), mat(hp_b), mat(hp_c)
 tail = next(n for n in "ACGT" if n != hp_a[42])  # non-templated
 reads = ([a] * 10 + [a + hp_a[42:44]] * 4 + [a[1:]] * 3 + [a[2:]] * 2 + [rc(a)] * 2 + [a + tail] * 3
-         + [b] * 6 + [c] * 5 + [hp_c[19] + c] * 2)
+         + [b] * 6 + [c] * 5 + [c + hp_c[42:44]] * 3 + [hp_c[19] + c] * 2)
 with open("reads.fastq", "w") as fh:
     for i, s in enumerate(reads):
         fh.write("@r%d\n%s\n+\n%s\n" % (i, s, "I" * len(s)))
@@ -80,11 +83,11 @@ YML
 tiny-collapse -i reads.fastq -o S1
 bowtie-build -q genome.fa genome
 bowtie -x genome -f S1_collapsed.fa -v 0 --all --best --strata --reorder --no-unal --sam --seed 0 S1.sam 2> bowtie.log
-# tiny-count exits 0 after an error, so its output is checked instead (the Python check below).
-tiny-count -pf paths.yml -o syn > tiny-count.log 2>&1 || true
-grep -q Traceback tiny-count.log && { cat tiny-count.log; exit 1; } || true
+# tiny-count exits 0 after some errors, so its log and output are checked too (the Python check below).
+tiny-count -pf paths.yml -o syn > tiny-count.log 2>&1 || { cat tiny-count.log; exit 1; }
+if grep -q Traceback tiny-count.log; then cat tiny-count.log; exit 1; fi
 '
-python3 - "$work" <<'PY'
+python3 - "$run" <<'PY'
 import csv, sys
 from pathlib import Path
 work = Path(sys.argv[1])
@@ -93,7 +96,7 @@ found = sorted(work.glob('tiny-count_*/syn_*_feature_counts.csv'))
 assert len(found) == 1, 'expected one feature counts table, found {}'.format(found)
 table = list(csv.DictReader(open(found[0])))
 counts = {row['Feature ID']: float(row['S1_rep_1']) for row in table}
-expected = {'MIMAT9000001': 17, 'MIMAT9000002': 3, 'MIMAT9000002_1': 3, 'MIMAT9000003': 7}
+expected = {'MIMAT9000001': 17, 'MIMAT9000002': 3, 'MIMAT9000002_1': 3, 'MIMAT9000003': 10}
 print('feature counts:', counts)
 assert counts == expected, 'expected {}'.format(expected)
 print('OK: canonical reads, 3\' extensions and 5\' shifts counted once on both strands; multimappers divided by loci')
