@@ -175,6 +175,7 @@ A dash under **Image** means no published image was found for the directory on D
 | [mirge3-build](mirge3-build/) | `gcfntnu/mirge3-build` (local build tool, not published) | `mambaorg/micromamba:2.0.5` |  | Builds miRge3 0.1.4 libraries (miRBase, MirGeneDB) for the release store; see `build_mirge3_lib.sh` |
 | [mirflowz](mirflowz/) | `gcfntnu/mirflowz` | `mambaorg/micromamba:2.0.5` |  | mirflowz 0.10.0 with all its tools, for one nested Snakemake call; see the Dockerfile header |
 | [tesmall](tesmall/) | `gcfntnu/tesmall` | `mambaorg/micromamba:2.0.5` |  | TEsmall 2.1.0 (bioconda) with a `--no-trim` patch for already-trimmed reads; see the Dockerfile header |
+| [tiny-count](tiny-count/) | `gcfntnu/tiny-count` | `mambaorg/micromamba:2.0.5` |  | tiny-count 1.6.0 (tinyRNA's counter, bioconda) with Bowtie 1 and samtools, HTSeq pinned to upstream's 2.0.3; see the Dockerfile header |
 | [quickmirseq](quickmirseq/) | `gcfntnu/quickmirseq` | `gcfntnu/python-base-conda:3.7` |  | QuickMIRSeq |
 | [seqbuster](seqbuster/) | `gcfntnu/seqbuster` | `gcfntnu/python-base-conda:3.7` |  | SeqBuster/miraligner |
 | [manatee](manatee/) | `gcfntnu/manatee` | `gcfntnu/python-base-conda:4.10.3` |  | Manatee small RNA quantification |
