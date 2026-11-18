@@ -1,6 +1,6 @@
 FROM gcfntnu/build-base:22.04
 
-# unitas 1.8.0 with GCF fixes (image tag 1.8.0-4).
+# unitas 1.8.0 with GCF fixes (image tag 1.8.0-5).
 #   1.8.0-1: offline build and workflow fixes, see unitas-1.8.0-1.patch.
 #   1.8.0-2: unitas_build_refdump.sh strips own species prefixes from miRBase hairpin names
 #            (unitas_normalize_hairpin.awk, gcfntnu/gcf-docker#8). unitas.pl is unchanged.
@@ -9,6 +9,9 @@ FROM gcfntnu/build-base:22.04
 #   1.8.0-4: unitas_build_refdump.sh downloads miRBase from the release-specific URLs and requires
 #            --mirbase-release; before, it took the current release and only used the option as a
 #            label. unitas.pl is unchanged.
+#   1.8.0-5: unitas_build_refdump.sh downloads piRNA clusters from piRNAclusterDB and SILVA 132 rRNA
+#            (unitas_silva_species.awk) instead of copying them from an old dump; only tRF-1 and
+#            tRNA leaders still come from --static-dir. unitas.pl is unchanged.
 #
 # The upstream host (www.smallrnagroup.uni-mainz.de) is gone, so the script and SeqMap are
 # supplied locally in files/ (git-ignored; local builds only):
@@ -19,10 +22,11 @@ FROM gcfntnu/build-base:22.04
 # Annotation runs are offline: provide UNITAS_refdump_<species> in the working directory;
 # seqmap.exe is picked up from PATH. Reference downloads and -riborase exit with an error.
 # -refdump only works with -mirror DIR (a local copy of the old server layout); use
-# unitas_build_refdump.sh to build reference dumps from Ensembl, GtRNAdb and miRBase or MirGeneDB.
+# unitas_build_refdump.sh to build reference dumps from Ensembl, GtRNAdb, miRBase or MirGeneDB,
+# piRNAclusterDB and SILVA.
 
 ENV UNITAS_VERSION=1.8.0
-ENV UNITAS_BUILD=1.8.0-4
+ENV UNITAS_BUILD=1.8.0-5
 ARG UNITAS_PATCH=unitas-1.8.0-1.patch
 ENV PATH=/opt/unitas:$PATH
 
@@ -53,7 +57,7 @@ RUN cpanm LWP::Simple \
 
 WORKDIR /opt/unitas
 COPY files/unitas_${UNITAS_VERSION}.pl files/seqmap.exe ${UNITAS_PATCH} unitas_build_refdump.sh unitas_normalize_hairpin.awk \
-     unitas_mirgenedb2mirbase.awk mirgenedb_species.tsv ./
+     unitas_mirgenedb2mirbase.awk unitas_silva_species.awk mirgenedb_species.tsv ./
 RUN dos2unix unitas_${UNITAS_VERSION}.pl
 # Legacy header-length patches (already present in the script from gcfntnu/unitas:1.8.0; no-ops then)
 RUN sed -i 's/head>30/head>1000/; s/head,0,27/head,0,1000/' unitas_${UNITAS_VERSION}.pl
@@ -68,4 +72,9 @@ RUN ln -s unitas_${UNITAS_VERSION}.pl unitas.pl \
        | grep -qx '>hsa-mir-1 MI1 Homo sapiens miR-1 stem-loop' \
     && printf '>Hsa-Let-7-P1b_pre\nACGU\n' \
        | awk -v kind=hairpin -v species=mirgenedb_species.tsv -f unitas_mirgenedb2mirbase.awk 2>/dev/null \
-       | grep -qx '>Hsa-Let-7-P1b_pre Hsa-Let-7-P1b_pre Homo sapiens Let-7-P1b stem-loop'
+       | grep -qx '>Hsa-Let-7-P1b_pre Hsa-Let-7-P1b_pre Homo sapiens Let-7-P1b stem-loop' \
+    && printf '>A1.1.4 Eukaryota;Homo sapiens (human)\nACGU\n' > /tmp/silva.fa \
+    && printf 'h\nA1\t1\t4\tEukaryota;\tHomo sapiens (human)\t 9606\n' > /tmp/silva.tax \
+    && awk -v taxid=9606 -v unit=SSU -f unitas_silva_species.awk /tmp/silva.tax /tmp/silva.fa 2>/dev/null \
+       | tr '\n' ' ' | grep -qx '>rRNA|SSU:A1.1.4 ACGT ' \
+    && rm /tmp/silva.fa /tmp/silva.tax
