@@ -15,17 +15,21 @@
 # 2 reads starting 2 nt later or the 2 antisense reads), MIMAT9000002 and MIMAT9000002_1 3 each (6 reads
 # divided by genomic hits), MIMAT9000003 10 (5 canonical, 3 with 2 nt more at the 3' end, 2 starting 1 nt
 # earlier). 3 reads with a non-templated 3' base do not align with -v 0.
-# Usage: tests/smoke_tiny_count.sh [image] [workdir]
+# Usage: tests/smoke_tiny_count.sh [image] [workdir]   (as a non-root user)
+# The tools are called with the image's entrypoint replaced by bash, as Apptainer calls them (it does not run
+# the Micromamba entrypoint), as the calling user, who must not be root.
 # Each run writes to a new run.XXXXXX folder in workdir (default: a new temporary folder), so a reused workdir
 # cannot pass on an earlier run's tables.
 set -euo pipefail
+if [ "$(id -u)" -eq 0 ]; then echo "run as a non-root user: the test checks the image as gcf-workflows runs it" >&2; exit 1; fi
 image=${1:-gcfntnu/tiny-count:1.6.0-1}
 work=${2:-$(mktemp -d)}
 mkdir -p "$work"
 run=$(mktemp -d "$(cd "$work" && pwd)/run.XXXXXX")   # absolute: docker -v takes a bare name for a named volume
 docker run --rm --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp -e HOME=/tmp \
-    -v "$run:/work" -w /work "$image" bash -c '
+    -v "$run:/work" -w /work --entrypoint bash "$image" -c '
 set -euo pipefail
+[ "$(id -u)" -ne 0 ] && [ -w /work ] || { echo "expected a non-root user with write access to /work"; exit 1; }
 python - <<PY
 import random
 random.seed(1)
@@ -93,11 +97,14 @@ from pathlib import Path
 work = Path(sys.argv[1])
 # standalone runs write to tiny-count_<timestamp>/ with the timestamp in the file names
 found = sorted(work.glob('tiny-count_*/syn_*_feature_counts.csv'))
-assert len(found) == 1, 'expected one feature counts table, found {}'.format(found)
+# explicit checks, not assert: python -O or PYTHONOPTIMIZE would skip asserts
+if len(found) != 1:
+    sys.exit('expected one feature counts table, found {}'.format(found))
 table = list(csv.DictReader(open(found[0])))
 counts = {row['Feature ID']: float(row['S1_rep_1']) for row in table}
 expected = {'MIMAT9000001': 17, 'MIMAT9000002': 3, 'MIMAT9000002_1': 3, 'MIMAT9000003': 10}
 print('feature counts:', counts)
-assert counts == expected, 'expected {}'.format(expected)
+if counts != expected:
+    sys.exit('expected {}'.format(expected))
 print('OK: canonical reads, 3\' extensions and 5\' shifts counted once on both strands; multimappers divided by loci')
 PY
