@@ -7,7 +7,9 @@ human) for miRBase and MirGeneDB, as uid 1000 with a read-only root filesystem, 
   * exact reads of three plain miRNAs are counted under their names;
   * reads of a SNP allele (.SNPA) are counted under the miRNA's base name (merges);
   * reads of a group of identical sequences are counted under the group name;
-  * spike-in and mature tRNA reads reach the annotation report.
+  * spike-in and mature tRNA reads reach the annotation report;
+  * human (--tRNA-frag): reads equal to a nuclear, a mitochondrial and a trailer (tRF-1) cluster
+    are counted under the cluster's merge group in tRF.Counts.csv.
 
 Usage: tests/smoke_mirge3.py --lib DIR (the dir holding <org>/) --org human|mouse|rat --out DIR
        [--image quay.io/biocontainers/mirge3:0.1.4--pyh7cba7a3_0]
@@ -72,6 +74,50 @@ def bowtie_inspect(image, lib, org, index):
     return recs
 
 
+def near(read, seqs):
+    """Windows of seqs within 1 mismatch of read, on either strand (miRge3 aligns tRNA with 1 mismatch)."""
+    hits = 0
+    for q in (read, m.revcomp(read)):
+        for s in seqs:
+            for i in range(len(s) - len(q) + 1):
+                if sum(a != b for a, b in zip(q, s[i:i + len(q)])) <= 1:
+                    hits += 1
+    return hits
+
+
+def trf_reads(mature, pre, lib, org, avoid_read):
+    """[(merge group, cluster, sequence, reads)] for a nuclear, a mitochondrial and a trailer cluster
+    whose sequence occurs once (within 1 mismatch, both strands) in all tRNA sequences, on a tRNA that
+    is no duplicate (miRge3 picks the one-hit tRNA among duplicates at random), in a merge group that
+    `avoid_read` cannot reach. Trailer reads must end in T (summary.py: re.search('T{3,}$'))."""
+    ann = Path(lib) / org / 'annotation.Libs'
+    seqs = list(mature.values()) + list(pre.values())
+    dup = {x for line in list(open(ann / f'{org}_trna_deduplicated_list.csv'))[1:]
+           for x in line.rstrip('\n').split(',')[1].split('/')}
+    group_of = {}
+    for line in open(ann / f'{org}_tRF_merges.csv'):
+        g, members = line.rstrip('\n').split(',', 1)
+        group_of.update((c, g) for c in members.split('/'))
+    reached = {n for n, s in list(mature.items()) + list(pre.items()) if near(avoid_read, [s])}
+    blocked = {group_of[c] for c in group_of if c.split('_Cluster')[0] in reached}
+    rows = [line.rstrip('\n').split(',') for line in list(open(ann / f'{org}_tRF_infor.csv'))[1:]]
+    kinds = (('nuclear', lambda t: t in mature and not t.startswith('trnaMT'), ''),
+             ('mito', lambda t: t.startswith('trnaMT'), ''),
+             ('trailer', lambda t: t.startswith('pre_'), 'TTTT'))
+    picks = []
+    for kind, ok, tail in kinds:
+        for r in rows:
+            c, seq, t = r[0], r[4], r[0].split('_Cluster')[0]
+            if (ok(t) and t not in dup and 16 <= len(seq) <= 30 and seq.endswith(tail)
+                    and group_of[c] not in blocked and near(seq, seqs) == 1):
+                picks.append((group_of[c], c, seq, kind))
+                blocked.add(group_of[c])
+                break
+        else:
+            sys.exit(f'smoke test: no usable {kind} tRF cluster in {ann}')
+    return [(g, c, s, n) for (g, c, s, _), n in zip(picks, (14, 9, 11))]
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--lib', required=True)
@@ -82,11 +128,19 @@ def main():
     lib, out = Path(a.lib).resolve(), Path(a.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     spike = bowtie_inspect(a.image, lib, a.org, 'spike-in')[0][1]
-    trna = bowtie_inspect(a.image, lib, a.org, 'mature_trna')[0][1][:30]
+    mature = dict(bowtie_inspect(a.image, lib, a.org, 'mature_trna'))
+    trna = next(iter(mature.values()))[:30]
+    trf = []
+    if a.org == 'human':
+        trf = trf_reads(mature, dict(bowtie_inspect(a.image, lib, a.org, 'pre_trna')), lib, a.org, trna)
+        for g, c, s, n in trf:
+            print(f'tRF read {s} ({c}, group {g}) x {n}')
+    n_mature = 12 + sum(n for g, c, s, n in trf if not c.startswith('pre_'))
+    n_primary = sum(n for g, c, s, n in trf if c.startswith('pre_'))
     failures = []
     for db in ('miRBase', 'MirGeneDB'):
         reads, expected, snp, ident = pick(lib, a.org, db)
-        extra = [spike] * 15 + [trna] * 12
+        extra = [spike] * 15 + [trna] * 12 + [s for g, c, s, n in trf for _ in range(n)]
         fq = out / f'smoke_{db}.fastq'
         write_fastq(fq, reads, extra)
         run = out / f'run_{db}'
@@ -111,7 +165,8 @@ def main():
             if got != n:
                 failures.append(f'{db}: {name} expected {n}, got {got}')
         report = list(csv.DictReader(open(result / 'annotation.report.csv')))[0]
-        for col, n in (('Spike-in', 15), ('mature tRNA Reads', 12)):
+        checks = [('Spike-in', 15), ('mature tRNA Reads', n_mature)] + ([('primary tRNA Reads', n_primary)] if trf else [])
+        for col, n in checks:
             key = next((k for k in report if k.lower().startswith(col.lower())), None)
             got = float(report[key]) if key else None
             print(f'{a.org} {db}: annotation {key}: expected {n}, got {got} {"ok" if got == n else "FAIL"}')
@@ -120,6 +175,16 @@ def main():
         for f in ('sample_miRge3.gff', 'a2IEditing.report.newform.csv', 'isomirs.csv'):
             if not (result / f).exists():
                 failures.append(f'{db}: {f} missing')
+        if trf:
+            if not (result / 'tRF.Counts.csv').exists():
+                failures.append(f'{db}: tRF.Counts.csv missing')
+                continue
+            tcounts = {r['entry name']: float(r[fq.stem]) for r in csv.DictReader(open(result / 'tRF.Counts.csv'))}
+            for g, c, s, n in trf:
+                got = tcounts.get(g)
+                print(f'{a.org} {db}: tRF group {g} ({c}): expected {n}, got {got} {"ok" if got == n else "FAIL"}')
+                if got != n:
+                    failures.append(f'{db}: tRF group {g} expected {n}, got {got}')
     if failures:
         sys.exit('smoke test FAILED:\n  ' + '\n  '.join(failures))
     print(f'smoke test {a.org}: ok')
