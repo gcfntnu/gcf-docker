@@ -438,6 +438,89 @@ class HumanTrna(unittest.TestCase):
                          ['1', 'MT', 'KI270713.1', 'GL000220.1', 'KI270879.1', 'X'])
 
 
+class MitoTrna(unittest.TestCase):
+    """trna (mouse, rat) with the Ensembl Mt_tRNA genes added (gcf-docker#53), trailers of 4 nt."""
+    F_GEN = 'GTTAATGTAGCTTAA'                     # mt-Tf, MT 5-19 (+)
+    S_GEN = 'GAAGATATAGTTTAAA'                    # rat-style symbol (accession), MT 24-39 (-)
+    MT = 'AAAC' + F_GEN + 'TCCA' + rc(S_GEN) + 'GGGG'
+    F, S = 'trnaMT_PheGAA_MT_+_5_19', 'trnaMT_SerTGA_MT_-_24_39'
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        t = self.t = Path(self.tmp.name)
+        self.mat = write(t / 'm.fa', '>Rattus_norvegicus_tRNA-Ala-AGC-1-1 (x)\nGGGGUU\n')
+        self.bed = write(t / 't.bed', 'chr1\t4\t10\ttRNA-Ala-AGC-1-1\t1000\t+\n')
+        self.mt_fa = write(t / 'mt.fa', f'>mt-Tf:MT:+:5:19\n{self.F_GEN}\n>AY172581.19:MT:-:24:39\n{self.S_GEN}\n')
+        self.calls(('Phe', 'GAA'), ('Ser', 'TGA'))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def calls(self, f, s, s_hit=(2, 15)):
+        """tRNAscan-SE output: F full-length, S's hit missing a base at each end by default."""
+        a, b = s_hit
+        write(self.t / 'mt.ss', HumanTrna.ss('mt-Tf:MT:+:5:19.trna1 (1-15)', *f, 6, self.F_GEN, '.' * 15)
+              + HumanTrna.ss(f'AY172581.19:MT:-:24:39.trna1 ({a}-{b})', *s, 6, self.S_GEN[a - 1:b], '.' * (b - a + 1)))
+
+    def run_trna(self, genome, *extra):
+        m.main(['trna', '--mature', self.mat, '--bed', self.bed, '--genome', genome, '--outdir', str(self.t / 'o'),
+                '--species-prefix', 'Rattus_norvegicus', '--trailer', '4', '--mt-fasta', self.mt_fa,
+                '--mt-ss', str(self.t / 'mt.ss'), *extra])
+
+    def check(self):
+        A = 'Rattus_norvegicus_tRNA-Ala-AGC-1-1'
+        self.assertEqual(fasta(self.t / 'o/mature_trna.fa'),
+                         [(A, 'GGGGTTCCA'), (self.F, self.F_GEN + 'CCA'), (self.S, self.S_GEN + 'CCA')])
+        self.assertEqual(fasta(self.t / 'o/pre_trna.fa'),
+                         [(f'pre_{A}_trailer', 'GGGT'), (f'pre_{self.F}_trailer', 'TCCA'),
+                          (f'pre_{self.S}_trailer', 'TGGA')])
+        self.assertEqual((self.t / 'o/mt_trna_shorter_hits.txt').read_text(),
+                         f'{self.S} (AY172581.19; hit 2-15 of 16)\n')
+
+    def test_mouse_one_genome(self):
+        genome = write(self.t / 'g.fa.gz', f'>1 dna\nAAAACCCCCCGGGTTTTA\n>MT dna\n{self.MT}\n')
+        self.run_trna(genome, '--chrom-prefix', '', '--mt-slack', '2')
+        self.check()
+
+    def test_rat_mt_from_another_genome(self):
+        rn7 = write(self.t / 'rn7.fa.gz', '>chr1\nAAAACCCCCCGGGTTTTA\n>chrM\nNNNN\n')
+        ens = write(self.t / 'ens.fa', f'>1 dna\nNNNN\n>MT dna\n{self.MT}\n')
+        self.run_trna(rn7, '--mt-genome', ens, '--mt-slack', '2')
+        self.check()
+
+    def test_rejected(self):
+        genome = write(self.t / 'g.fa.gz', f'>1 dna\nAAAACCCCCCGGGTTTTA\n>MT dna\n{self.MT}\n')
+        cases = {
+            'hit shorter than the locus without slack':
+                ((('Phe', 'GAA'), ('Ser', 'TGA')), (), 'expected one full-length tRNAscan-SE hit'),
+            'hit 3 nt short with slack 2': ((('Phe', 'GAA'), ('Ser', 'TGA'), (1, 13)), ('--mt-slack', '2'),
+                                            'missing at most 2 nt at either end'),
+            'pair called twice': ((('Phe', 'GAA'), ('Phe', 'GAA')), ('--mt-slack', '2'), 'Phe-GAA, a second time'),
+            'not a vertebrate MT pair': ((('Phe', 'GAA'), ('Ser', 'GGA')), ('--mt-slack', '2'),
+                                         'not a vertebrate mitochondrial tRNA'),
+            'amino acid against the symbol': ((('Leu', 'TAA'), ('Ser', 'TGA')), ('--mt-slack', '2'),
+                                              'mt-Tf:MT:.*calls it Leu$'),
+            'trailer cut at the end of MT': ((('Phe', 'GAA'), ('Ser', 'TGA')), ('--mt-slack', '2', '--trailer', '30'),
+                                             'less than 30 nt downstream on MT'),
+        }
+        for what, (calls, extra, message) in cases.items():
+            with self.subTest(what):
+                self.calls(*calls)
+                with self.assertRaisesRegex(SystemExit, message):
+                    self.run_trna(genome, '--chrom-prefix', '', *extra)
+        self.calls(('Phe', 'GAA'), ('Ser', 'TGA'))
+        write(self.bed, 'chr1\t4\t10\ttRNA-Ala-AGC-1-1\t1000\t+\nchrM\t0\t6\ttRNA-Ala-AGC-1-1\t1000\t+\n')
+        with self.subTest('GtRNAdb with mitochondrial loci'), \
+                self.assertRaisesRegex(SystemExit, 'GtRNAdb set has mitochondrial loci'):
+            self.run_trna(genome, '--chrom-prefix', '', '--mt-slack', '2')
+
+    def test_mt_trna_rat_header(self):
+        nc = write(self.t / 'nc.fa', '>T1.1 ncrna primary_assembly:GRCr8:MT:6850:6919:-1 gene:G1.4 '
+                   'gene_biotype:Mt_tRNA transcript_biotype:Mt_tRNA gene_symbol:AY172581.19\nUGAG\n')
+        m.main(['mt-trna', '--ncrna', nc, '--out', str(self.t / 'mt_out.fa'), '--expect', '1'])
+        self.assertEqual(fasta(self.t / 'mt_out.fa'), [('AY172581.19:MT:-:6850:6919', 'TGAG')])
+
+
 class LibraryNames(unittest.TestCase):
     """File names miRge3 0.1.4 opens (mirge/libs/*.py), with -d miRBase or -d MirGeneDB and
     -on human. A library built with 'miRGeneDB' (miRge-build's documented spelling) fails here."""

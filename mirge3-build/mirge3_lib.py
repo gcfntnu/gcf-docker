@@ -473,14 +473,34 @@ def cmd_trna(args):
             if full in names:
                 loci.append((args.chrom_prefix + norm_chrom(f[0]) if args.chrom_prefix is not None else f[0],
                              int(f[1]), int(f[2]), full, f[5]))
-    genome = read_genome(args.genome, {c for c, *_ in loci}, rename)
+    # mitochondrial (optional): Ensembl Mt_tRNA loci (+CCA) on --mt-genome (default --genome), named by
+    # the amino acid and anticodon tRNAscan-SE calls, as in human
+    if bool(args.mt_fasta) != bool(args.mt_ss):
+        die('--mt-fasta and --mt-ss go together')
+    mt = mito_trnas(args.mt_fasta, args.mt_ss, args.mt_slack) if args.mt_fasta else []
+    if mt and any(norm_chrom(c) == 'MT' for c, *_ in loci):
+        die('the GtRNAdb set has mitochondrial loci too; the Ensembl Mt_tRNA genes would double them')
+    mt_path, mt_chroms = args.mt_genome or args.genome, {t['chrom'] for t in mt}
+    genome = read_genome(args.genome, {c for c, *_ in loci} | (mt_chroms if mt_path == args.genome else set()), rename)
     pre, skipped = trailers(loci, genome, args.trailer)
-    write_fasta(Path(args.outdir) / 'mature_trna.fa', mature)
-    write_fasta(Path(args.outdir) / 'pre_trna.fa', pre)
     print(f'tRNA: {len(mature)} mature, {len(pre)} trailers, {len(skipped)} without genome contig '
           f'{skipped[:3]}', file=sys.stderr)
     if len(pre) < len(mature) * 0.9:
         die('fewer than 90% of the mature tRNAs got a trailer; check contig names')
+    if mt:
+        mt_genome = genome if mt_path == args.genome else read_genome(mt_path, mt_chroms, {})
+        check_mito_genome(mt, mt_genome, args.trailer)
+        mt_pre, _ = trailers([(t['chrom'], t['start'] - 1, t['end'], t['name'], t['strand']) for t in mt],
+                             mt_genome, args.trailer)
+        mature += [(t['name'], add_cca(t['seq'])) for t in mt]
+        pre += mt_pre
+        shorter = [f"{t['name']} ({t['sym']}; hit {t['hit']})" for t in mt if t['hit']]
+        print(f'tRNA: {len(mt)} mitochondrial, Ensembl locus kept where the tRNAscan-SE hit is shorter: '
+              f'{", ".join(shorter) or "none"}', file=sys.stderr)
+    write_fasta(Path(args.outdir) / 'mature_trna.fa', mature)
+    write_fasta(Path(args.outdir) / 'pre_trna.fa', pre)
+    if mt:
+        (Path(args.outdir) / 'mt_trna_shorter_hits.txt').write_text(''.join(s + '\n' for s in shorter))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -498,6 +518,10 @@ def cmd_trna(args):
 AA3 = dict(A='Ala', C='Cys', D='Asp', E='Glu', F='Phe', G='Gly', H='His', I='Ile', K='Lys', L='Leu',
            M='Met', N='Asn', P='Pro', Q='Gln', R='Arg', S='Ser', T='Thr', V='Val', W='Trp', Y='Tyr')
 TRF_HEADER = 'tRNA cluster,locus,intron,RNA location,sequence,RNA sequence'
+# the 22 tRNAs of vertebrate mitochondria (amino acid, anticodon), as tRNAscan-SE -M vert calls them
+VERT_MT = frozenset(tuple(x.split('-')) for x in (
+    'Phe-GAA Val-TAC Leu-TAA Ile-GAT Gln-TTG Met-CAT Trp-TCA Ala-TGC Asn-GTT Cys-GCA Tyr-GTA Ser-TGA '
+    'Asp-GTC Lys-TTT Gly-TCC Arg-TCG His-GTG Ser-GCT Leu-TAG Glu-TTC Thr-TGT Pro-TGG').split())
 
 
 def ensembl_contig(c):
@@ -615,13 +639,65 @@ def cluster_locus(trna, start, end, info):
     return f"{t['label']}:{min(pos)}-{max(pos)}{strand}", intron_s
 
 
+def mito_trnas(mt_fasta, mt_ss, slack=0):
+    """Ensembl Mt_tRNA genes (mt-trna output) with their tRNAscan-SE -M vert calls -> one record per
+    gene, in FASTA order: name (trnaMT_<Aa><anticodon>_MT_<strand>_<start>_<end>, Ensembl locus), sym,
+    chrom, strand, start, end, seq (the Ensembl sequence, no CCA), rec (the tRNAscan-SE record) and
+    hit ('a-b of n' when the hit is shorter than the locus, else None).
+    Each gene needs exactly one hit with the Ensembl sequence, over the whole locus or, with `slack`,
+    missing at most `slack` nt at either end (the locus is kept). The amino acid must match a gene
+    symbol that encodes one (MT-TF, mt-Tf; rat symbols are GenBank accessions), and the (amino acid,
+    anticodon) pairs must be the vertebrate ones, each once."""
+    hits = defaultdict(list)
+    for r in parse_trnascan_ss(Path(mt_ss).read_text()):
+        hits[r['seqname']].append(r)
+    out, seen = [], set()
+    for gname, gseq in read_fasta(mt_fasta):
+        sym, chrom, strand, start, end = gname.split(':')
+        h = hits.get(gname, [])
+        if not (len(h) == 1 and 1 <= h[0]['start'] <= 1 + slack and len(gseq) - slack <= h[0]['end'] <= len(gseq)):
+            span = f'missing at most {slack} nt at either end' if slack else 'full-length'
+            die(f'{gname}: expected one {span} tRNAscan-SE hit, got {[(x["start"], x["end"]) for x in h]}')
+        r = h[0]
+        if r['intron'] or to_dna(r['seq']) != gseq[r['start'] - 1:r['end']]:
+            die(f'{gname}: tRNAscan-SE sequence differs from the Ensembl sequence')
+        sym_aa = re.fullmatch(r'mt-t([a-z])\d?', sym, re.I)
+        if sym_aa and AA3[sym_aa.group(1).upper()] != r['aa']:
+            die(f'{gname}: tRNAscan-SE calls it {r["aa"]}')
+        pair = (r['aa'], r['anticodon'])
+        if pair not in VERT_MT or pair in seen:
+            die(f'{gname}: tRNAscan-SE calls it {"-".join(pair)}, '
+                f'{"a second time" if pair in seen else "not a vertebrate mitochondrial tRNA"}')
+        seen.add(pair)
+        partial = (r['start'], r['end']) != (1, len(gseq))
+        out.append(dict(name=f"trnaMT_{r['aa']}{r['anticodon']}_MT_{strand}_{start}_{end}", sym=sym, chrom=chrom,
+                        strand=strand, start=int(start), end=int(end), seq=gseq, rec=r,
+                        hit=f"{r['start']}-{r['end']} of {len(gseq)}" if partial else None))
+    return out
+
+
+def check_mito_genome(mito, genome, length):
+    """Each mito_trnas record's Ensembl sequence is its locus in `genome`, with a full `length` nt
+    downstream for the trailer (none is cut at the end of the circular MT)."""
+    for t in mito:
+        g = genome.get(t['chrom'])
+        if g is None:
+            die(f"{t['name']}: no contig {t['chrom']} in the genome")
+        s = g[t['start'] - 1:t['end']].upper()
+        if (s if t['strand'] == '+' else revcomp(s)) != t['seq']:
+            die(f"{t['name']}: Ensembl sequence differs from the genome")
+        if (len(g) - t['end'] if t['strand'] == '+' else t['start'] - 1) < length:
+            die(f"{t['name']}: less than {length} nt downstream on {t['chrom']} for the trailer")
+
+
 def cmd_mt_trna(args):
     """Ensembl Mt_tRNA genes (ncRNA FASTA) -> FASTA named <symbol>:<chrom>:<strand>:<start>:<end>."""
     recs = OrderedDict()
     for header, seq in read_fasta(args.ncrna):
         if 'gene_biotype:Mt_tRNA' not in header:
             continue
-        loc = re.search(r'chromosome:[^:\s]+:([^:\s]+):(\d+):(\d+):(-?1)\b', header)
+        # chromosome:GRCh38:MT:577:647:1 (human, mouse), primary_assembly:GRCr8:MT:1:67:1 (rat)
+        loc = re.search(r'\b(?:chromosome|primary_assembly):[^:\s]+:([^:\s]+):(\d+):(\d+):(-?1)\b', header)
         sym = re.search(r'gene_symbol:(\S+)', header)
         gene = re.search(r'gene:(\S+)', header)
         if not loc:
@@ -666,32 +742,17 @@ def cmd_trna_human(args):
         loci.append((ensembl_contig(chrom), s0, e, name, strand))
         nuclear.append(name)
     # mitochondrial: Ensembl Mt_tRNA loci (+CCA), amino acid, anticodon and structure from tRNAscan-SE
-    hits = defaultdict(list)
-    for r in parse_trnascan_ss(open(args.mt_ss).read()):
-        hits[r['seqname']].append(r)
-    for gname, gseq in read_fasta(args.mt_fasta):
-        sym, chrom, strand, start, end = gname.split(':')
-        h = hits.get(gname, [])
-        if len(h) != 1 or (h[0]['start'], h[0]['end']) != (1, len(gseq)):
-            die(f'{gname}: expected one full-length tRNAscan-SE hit, got {[(x["start"], x["end"]) for x in h]}')
-        r = h[0]
-        sym_aa = re.fullmatch(r'mt-t([a-z])\d?', sym, re.I)
-        if sym_aa and AA3[sym_aa.group(1).upper()] != r['aa']:
-            die(f'{gname}: tRNAscan-SE calls it {r["aa"]}')
-        mseq, st, ac = mature_structure(r, len(gseq) + 3)
-        if mseq != gseq:
-            die(f'{gname}: tRNAscan-SE sequence differs from the Ensembl sequence')
-        name = f"trnaMT_{r['aa']}{r['anticodon']}_MT_{strand}_{start}_{end}"
-        info[name] = dict(seq=add_cca(gseq), str=st, ac=ac, aa=r['aa'], anticodon=r['anticodon'], label='mito',
-                          gs=int(start), ge=int(end), strand=strand, intron=None, source=f'Ensembl {sym}')
-        loci.append((chrom, int(start) - 1, int(end), name, strand))
+    # (full-length hits only: the structure must cover the sequence)
+    mt = mito_trnas(args.mt_fasta, args.mt_ss)
+    for t in mt:
+        r, name = t['rec'], t['name']
+        _, st, ac = mature_structure(r, len(t['seq']) + 3)
+        info[name] = dict(seq=add_cca(t['seq']), str=st, ac=ac, aa=r['aa'], anticodon=r['anticodon'], label='mito',
+                          gs=t['start'], ge=t['end'], strand=t['strand'], intron=None, source=f"Ensembl {t['sym']}")
+        loci.append((t['chrom'], t['start'] - 1, t['end'], name, t['strand']))
         mito.append(name)
     genome = read_genome(args.genome, {c for c, *_ in loci}, {})
-    for chrom, s0, e, name, strand in loci:
-        if name in mito:
-            g = genome[chrom][s0:e].upper()
-            if add_cca(g if strand == '+' else revcomp(g)) != info[name]['seq']:
-                die(f'{name}: Ensembl sequence differs from the genome')
+    check_mito_genome(mt, genome, args.trailer)
     pre, skipped = trailers(loci, genome, args.trailer)
     if skipped:
         die(f'no genome contig for the trailers of {skipped}')
@@ -956,6 +1017,11 @@ def main(argv=None):
                    help="rewrite BED contigs to <prefix><1|MT> (e.g. '' for Ensembl names)")
     s.add_argument('--rename', nargs='*', help='genome contig renames, old=new')
     s.add_argument('--trailer', type=int, default=100)
+    s.add_argument('--mt-fasta', help='mt-trna output: adds the mitochondrial tRNAs (with --mt-ss)')
+    s.add_argument('--mt-ss', help='tRNAscan-SE -M vert -f output for --mt-fasta')
+    s.add_argument('--mt-genome', help='genome FASTA with the Mt_tRNA contig (default --genome)')
+    s.add_argument('--mt-slack', type=int, default=0,
+                   help='nt the tRNAscan-SE hit may miss at either end of a locus (the locus is kept)')
     s.set_defaults(func=cmd_trna)
     s = sub.add_parser('mt-trna')
     s.add_argument('--ncrna', required=True, help='Ensembl ncRNA FASTA')
