@@ -3,6 +3,7 @@
 import gzip
 import re
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -249,10 +250,192 @@ class Other(unittest.TestCase):
             genome = write(t / 'g.fa.gz', '>1 dna:primary_assembly\nAAAACCCCCCGGGTTTTA\n>MT dna\nTTTTGCAAAAAAAAAAAA\n')
             m.main(['trna', '--mature', mat, '--bed', bed, '--genome', genome, '--outdir', str(t / 'o'),
                     '--species-prefix', 'Mus_musculus', '--chrom-prefix', '', '--trailer', '4'])
+            # CCA is always added, also to a mature sequence that ends in CCA by chance (gcf-docker#53)
             self.assertEqual(fasta(t / 'o/mature_trna.fa'), [('Mus_musculus_tRNA-Ala-AGC-1-1', 'GGGGTTCCA'),
-                                                             ('Mus_musculus_tRNA-Gly-GCC-1-1', 'GCATTGGCCA')])
+                                                             ('Mus_musculus_tRNA-Gly-GCC-1-1', 'GCATTGGCCACCA')])
             self.assertEqual(fasta(t / 'o/pre_trna.fa'), [('pre_Mus_musculus_tRNA-Ala-AGC-1-1_trailer', 'GGGT'),
                                                           ('pre_Mus_musculus_tRNA-Gly-GCC-1-1_trailer', 'TTGC')])
+
+
+def rc(s):
+    return m.revcomp(s)
+
+
+class HumanTrna(unittest.TestCase):
+    """trna-human on a synthetic GtRNAdb Hsapi38-like set (trailers of 4 nt)."""
+    H = 'Homo_sapiens_tRNA-'
+    A_GEN = 'GCTAGCTTGAAAGCTCCA'                 # ends in CCA by chance; + strand chr1 5-22
+    B_LEFT, B_INTRON, B_RIGHT = 'GTCAGGATGG', 'aatt', 'CCGAGTGG'   # - strand chr1 31-52, intron 11-14
+    C_GEN = 'GGCCTTAAGGACTTAGGC'                 # chr1_KI270713v1_random (Ensembl KI270713.1)
+    M_GEN = 'GAAGATATAGTTTAAA'                   # MT-TS1, MT 5-20 (-)
+    A_STR = '>>>>.>>...<<.<<<<.'
+    B_STR = '>>>>..>...' + '....' + '<...<<<<'
+    M_STR = '>>>..>...<..<<<.'
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        t = self.t = Path(self.tmp.name)
+        self.bpre = self.B_LEFT + self.B_INTRON + self.B_RIGHT
+        self.bm = (self.B_LEFT + self.B_RIGHT).upper()
+        chr1 = 'CCCC' + self.A_GEN + 'TTTT' + 'GGGA' + rc(self.bpre.upper()) + 'CC' + self.A_GEN + 'TTTT' + 'GCGC'
+        self.genome = write(t / 'genome.fa', f'>1 dna\n{chr1}\n>KI270713.1 dna\nAAAA{self.C_GEN}CGCG\n'
+                            f'>MT dna\nTTTT{rc(self.M_GEN)}ACGTACGT\n>2 dna\nACGT\n')
+        H = self.H
+        files = {
+            'hg38-mature-tRNAs.fa': f'>{H}Ala-TGC-1-1 (tRNAscan-SE ID: chr1.trna1) Ala (TGC)\n{self.A_GEN}\n'
+                                    f'>{H}Leu-CAA-1-1 (tRNAscan-SE ID: chr1.trna2)\n{self.bm.replace("T", "U")}\n'
+                                    f'>{H}Ala-TGC-1-2 (x)\n{self.A_GEN}\n>{H}Gly-GCC-1-1 (x)\n{self.C_GEN}\n',
+            'hg38-tRNAs.bed': 'chr1\t4\t22\ttRNA-Ala-TGC-1-1\t1000\t+\t4\t22\t0\t1\t18,\t0,\n'
+                              'chr1\t30\t52\ttRNA-Leu-CAA-1-1\t1000\t-\t30\t52\t0\t2\t8,10,\t0,12,\n'
+                              'chr1\t54\t72\ttRNA-Ala-TGC-1-2\t1000\t+\t54\t72\t0\t1\t18,\t0,\n'
+                              'chr1_KI270713v1_random\t4\t22\ttRNA-Gly-GCC-1-1\t1000\t+\t4\t22\t0\t1\t18,\t0,\n'
+                              'chr2\t0\t3\ttRNA-Und-NNN-1-1\t1000\t+\n',
+            'hg38-tRNAs_name_map.txt': 'tRNAscan-SE_id\tGtRNAdb_id\nchr1.trna1\ttRNA-Ala-TGC-1-1\n'
+                                       'chr1.trna2\ttRNA-Leu-CAA-1-1\nchr1.trna3\ttRNA-Ala-TGC-1-2\n'
+                                       'chr1_KI270713v1_random.trna1\ttRNA-Gly-GCC-1-1\nchr2.trna9\ttRNA-Und-NNN-1-1\n',
+            'hg38-tRNAs-detailed.ss': self.ss('chr1.trna1 (5-22)', 'Ala', 'TGC', 8, self.A_GEN, self.A_STR)
+            + self.ss('chr1.trna2 (52-31)', 'Leu', 'CAA', 7, self.bpre, self.B_STR, intron='11-14 (42-39)')
+            + self.ss('chr1.trna3 (55-72)', 'Ala', 'TGC', 8, self.A_GEN, self.A_STR)
+            + self.ss('chr1_KI270713v1_random.trna1 (5-22)', 'Gly', 'GCC', 8, self.C_GEN, self.A_STR)
+            + self.ss('chr2.trna9 (1-3)', 'Undet', 'NNN', 0, 'ACG', '...'),
+            'hg38-tRNAs.fa': '>ignored\nACGT\n',
+        }
+        with tarfile.open(t / 'hg38-tRNAs.tar.gz', 'w:gz') as tar:
+            for name, text in files.items():
+                write(t / 'gt' / name, text)
+                tar.add(t / 'gt' / name, arcname=name)
+        self.mt_fa = write(t / 'mt.fa', f'>MT-TS1:MT:-:5:20\n{self.M_GEN}\n')
+        self.mt_ss = write(t / 'mt.ss', self.ss('MT-TS1:MT:-:5:20.trna1 (1-16)', 'Ser', 'TGA', 6, self.M_GEN, self.M_STR))
+        a_new = '((((.((XXX)).))))....'
+        b_new = '((((..XXX.)...))))...'
+        self.m_name = 'trnaMT_SerTGA_MT_-_5_20'
+        m_new = '(((..XXX.)..))).' + '...'
+        self.am = self.A_GEN + 'CCA'
+        self.old = t / 'old'
+        cm = self.C_GEN + 'CCA'      # SourceForge name Gly-1-1, renamed Gly-GCC-1-1
+        write(self.old / 'human_trna.str', f'>{H}Ala-TGC-1-1\n{self.am}\n{a_new}\n>{H}Asn-26-1\nACGTACGT\n..XXX...\n'
+              f'>{H}Gly-1-1\n{cm}\n{a_new}\n'
+              f'>{H}Leu-CAA-1-1\n{self.bm}CCA\n.' + b_new[1:] + f'\n>{self.m_name}\n{self.M_GEN}CCA\n{m_new}\n')
+        bseq = self.bm + 'CCA'
+        write(self.old / 'human_tRF_infor.csv', m.TRF_HEADER + '\n'
+              f'{H}Ala-TGC-1-1_Cluster_1,chr1:5-10+,None,1-6,GCTAGC,{self.am}\n'
+              f'{H}Ala-TGC-1-1_Cluster_2,chr1:6-11+,None,2-7,AAAAAA,{self.am}\n'
+              f'{H}Ala-TGC-1-1_Cluster_3,chr1:20-22+,None,16-21,CCACCA,{self.am}\n'
+              f'{H}Asn-26-1_Cluster_1,chr9:1-5+,None,1-5,ACGTA,ACGTACGT\n'
+              f'{H}Leu-CAA-1-1_Cluster_1,chr1:37-45-,39-42,8-12,{bseq[7:12]},{bseq}\n'
+              f'pre_{H}Ala-TGC-1-1_trailer_Cluster_1,chr1:23-25+,None,1-3,TTT,TTTT\n'
+              f'{self.m_name}_Cluster_1,mito:16-20-,None,1-5,GAAGA,{self.M_GEN}CCA\n'
+              f'pre_{H}Leu-CAA-1-1_trailer_Cluster_1,chr1:28-30-,None,1-3,TCC,TCCC\n'
+              f'{H}Gly-1-1_Cluster_1,chr1_KI270713v1_random:5-9+,None,1-5,GGCCT,{cm}\n'
+              f'pre_{H}Gly-1-1_trailer_Cluster_1,chr1_KI270713v1_random:23-25+,None,1-3,CGC,CGCG\n')
+        write(self.old / 'human_tRF_merges.csv',
+              f'Ala_Comb_1,{H}Ala-TGC-1-1_Cluster_1/{H}Ala-TGC-1-1_Cluster_2\nAsn_Comb_1,{H}Asn-26-1_Cluster_1\n'
+              f'Mix_Comb_1,{H}Leu-CAA-1-1_Cluster_1/pre_{H}Ala-TGC-1-1_trailer_Cluster_1/{self.m_name}_Cluster_1/'
+              f'{H}Ala-TGC-1-1_Cluster_3/pre_{H}Leu-CAA-1-1_trailer_Cluster_1\n'
+              f'Gly_Comb_1,{H}Gly-1-1_Cluster_1/pre_{H}Gly-1-1_trailer_Cluster_1\n')
+        self.expect_str = {f'{H}Ala-TGC-1-1': a_new, f'{H}Leu-CAA-1-1': b_new, self.m_name: m_new}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    @staticmethod
+    def ss(head, aa, ac, ac_start, seq, st, intron=None):
+        return (f'{head}\tLength: {len(seq)} bp\nType: {aa}\tAnticodon: {ac} at {ac_start}-{ac_start + 2} (1-3)\t'
+                f'Score: 60.0\n' + (f'Possible intron: {intron}\n' if intron else '') +
+                f'HMM Sc=40.00\tSec struct Sc=20.00\n         *    |    *    |\nSeq: {seq}\nStr: {st}\n\n')
+
+    def run_human(self):
+        t = self.t
+        m.main(['trna-human', '--gtrnadb', str(t / 'hg38-tRNAs.tar.gz'), '--genome', self.genome,
+                '--mt-fasta', self.mt_fa, '--mt-ss', self.mt_ss, '--old-annotation', str(self.old),
+                '--outdir', str(t / 'o'), '--annotation', str(t / 'lib/annotation.Libs'),
+                '--changes', str(t / 'changes.tsv'), '--trailer', '4'])
+        return t / 'lib/annotation.Libs'
+
+    def test_set(self):
+        ann, H = self.run_human(), self.H
+        A, B, D, C = (H + x for x in ('Ala-TGC-1-1', 'Leu-CAA-1-1', 'Ala-TGC-1-2', 'Gly-GCC-1-1'))
+        self.assertEqual(fasta(self.t / 'o/mature_trna.fa'),
+                         [(A, self.am), (B, self.bm + 'CCA'), (D, self.am), (C, self.C_GEN + 'CCA'),
+                          (self.m_name, self.M_GEN + 'CCA')])
+        self.assertEqual(fasta(self.t / 'o/pre_trna.fa'),
+                         [(f'pre_{A}_trailer', 'TTTT'), (f'pre_{B}_trailer', 'TCCC'), (f'pre_{D}_trailer', 'TTTT'),
+                          (f'pre_{C}_trailer', 'CGCG'), (f'pre_{self.m_name}_trailer', 'AAAA')])
+        st = m.read_trna_str(ann / 'human_trna.str')
+        self.assertEqual(list(st), [A, D, C, B, self.m_name])   # nuclear sorted, then MT
+        for n, s in self.expect_str.items():
+            self.assertEqual(st[n][1], s, n)
+        aa = [line.strip() for line in open(ann / 'human_trna_aminoacid_anticodon.csv')]
+        self.assertEqual(len(aa), 10)
+        self.assertIn(f'{self.m_name},Ser,TGA', aa)
+        self.assertIn(f'pre_{B}_trailer,Leu,CAA', aa)
+        self.assertEqual(open(ann / 'human_trna_deduplicated_list.csv').read(),
+                         f'kept tRNA,tRNA list\n{A},{A}/{D}\npre_{A}_trailer,pre_{A}_trailer/pre_{D}_trailer\n')
+        trf = [line.rstrip('\n').split(',') for line in open(ann / 'human_tRF_infor.csv')]
+        self.assertEqual([r[0] for r in trf[1:]], [f'{A}_Cluster_1', f'{A}_Cluster_3', f'{B}_Cluster_1',
+                                                   f'pre_{A}_trailer_Cluster_1', f'{self.m_name}_Cluster_1',
+                                                   f'pre_{B}_trailer_Cluster_1', f'{C}_Cluster_1',
+                                                   f'pre_{C}_trailer_Cluster_1'])
+        self.assertEqual([(r[1], r[2]) for r in trf[1:]],     # loci recomputed, as in the old file
+                         [('chr1:5-10+', 'None'), ('chr1:20-22+', 'None'), ('chr1:37-45-', '39-42'),
+                          ('chr1:23-25+', 'None'), ('mito:16-20-', 'None'), ('chr1:28-30-', 'None'),
+                          ('chr1_KI270713v1_random:5-9+', 'None'), ('chr1_KI270713v1_random:23-25+', 'None')])
+        self.assertEqual(open(ann / 'human_tRF_merges.csv').read(),
+                         f'Ala_Comb_1,{A}_Cluster_1\nMix_Comb_1,{B}_Cluster_1/pre_{A}_trailer_Cluster_1/'
+                         f'{self.m_name}_Cluster_1/{A}_Cluster_3/pre_{B}_trailer_Cluster_1\n'
+                         f'Gly_Comb_1,{C}_Cluster_1/pre_{C}_trailer_Cluster_1\n')
+        changes = {(r[0], r[1]): (r[2], r[3]) for r in
+                   (line.rstrip('\n').split('\t') for line in list(open(self.t / 'changes.tsv'))[1:])}
+        self.assertEqual(changes['tRNA', A], ('kept', 'GtRNAdb; same sequence and structure'))
+        self.assertEqual(changes['tRNA', B], ('kept', 'GtRNAdb; same sequence and anticodon; structure differs'))
+        self.assertEqual(changes['tRNA', D][0], 'new')
+        self.assertEqual(changes['tRNA', C], ('renamed', f'GtRNAdb; SourceForge name {H}Gly-1-1; same sequence and structure'))
+        self.assertNotIn(('tRNA', H + 'Gly-1-1'), changes)
+        self.assertEqual(changes['cluster', f'pre_{C}_trailer_Cluster_1'],
+                         ('renamed', f'SourceForge name pre_{H}Gly-1-1_trailer_Cluster_1; locus as before'))
+        self.assertEqual(changes['tRNA', H + 'Asn-26-1'], ('dropped', 'not in the new set'))
+        self.assertEqual(changes['cluster', f'{A}_Cluster_2'], ('dropped', f'sequence not at 2-7 of {A}'))
+        self.assertEqual(changes['cluster', f'{H}Asn-26-1_Cluster_1'][0], 'dropped')
+        self.assertEqual(changes['cluster', f'{B}_Cluster_1'], ('kept', 'locus as before'))
+        self.assertEqual(changes['merge', 'Ala_Comb_1'][0], 'pruned')
+        self.assertEqual(changes['merge', 'Asn_Comb_1'][0], 'dropped')
+        # miRge3 invariants hold on the result, and a broken merge file is caught
+        mature = [n for n, _ in fasta(self.t / 'o/mature_trna.fa')]
+        pre = [n for n, _ in fasta(self.t / 'o/pre_trna.fa')]
+        self.assertEqual(m.trna_annotation_problems(ann, 'human', mature, pre), [])
+        (ann / 'human_tRF_merges.csv').write_text(f'Ala_Comb_1,{A}_Cluster_1\n')
+        self.assertEqual(m.trna_annotation_problems(ann, 'human', mature, pre),
+                         [f'{c}: in 0 merge groups' for c in (f'{A}_Cluster_3', f'{B}_Cluster_1',
+                                                              f'pre_{A}_trailer_Cluster_1', f'{self.m_name}_Cluster_1',
+                                                              f'pre_{B}_trailer_Cluster_1', f'{C}_Cluster_1',
+                                                              f'pre_{C}_trailer_Cluster_1')])
+
+    def test_anticodon_moved(self):
+        text = (self.old / 'human_trna.str').read_text().replace('((((.((XXX)).))))....', '((((XXX.)).))))....')
+        (self.old / 'human_trna.str').write_text(text)
+        with self.assertRaises(SystemExit):
+            self.run_human()
+
+    def test_mt_wrong_amino_acid(self):
+        write(self.mt_ss, self.ss('MT-TS1:MT:-:5:20.trna1 (1-16)', 'Leu', 'TAA', 6, self.M_GEN, self.M_STR))
+        with self.assertRaises(SystemExit):
+            self.run_human()
+
+    def test_mt_trna(self):
+        nc = write(self.t / 'nc.fa.gz', '>T1.1 ncrna chromosome:GRCh38:MT:577:647:1 gene:G1.1 gene_biotype:Mt_tRNA '
+                   'transcript_biotype:Mt_tRNA gene_symbol:MT-TF description:x\nGUUUAUG\n'
+                   '>T2.1 ncrna chromosome:GRCh38:MT:5512:5579:-1 gene:G2.1 gene_biotype:Mt_tRNA '
+                   'transcript_biotype:Mt_tRNA gene_symbol:MT-TW\nAGAA\n'
+                   '>T3.1 ncrna chromosome:GRCh38:1:1:9:1 gene:G3 gene_biotype:snoRNA\nACGT\n')
+        m.main(['mt-trna', '--ncrna', nc, '--out', str(self.t / 'mt_out.fa'), '--expect', '2'])
+        self.assertEqual(fasta(self.t / 'mt_out.fa'), [('MT-TF:MT:+:577:647', 'GTTTATG'), ('MT-TW:MT:-:5512:5579', 'AGAA')])
+        with self.assertRaises(SystemExit):
+            m.main(['mt-trna', '--ncrna', nc, '--out', str(self.t / 'mt_out.fa')])   # 22 expected
+
+    def test_ensembl_contig(self):
+        self.assertEqual([m.ensembl_contig(c) for c in ('chr1', 'chrM', 'chr1_KI270713v1_random',
+                                                         'chrUn_GL000220v1', 'chr22_KI270879v1_alt', 'chrX')],
+                         ['1', 'MT', 'KI270713.1', 'GL000220.1', 'KI270879.1', 'X'])
 
 
 class LibraryNames(unittest.TestCase):

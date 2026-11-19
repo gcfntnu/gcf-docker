@@ -5,16 +5,18 @@
 #                            [--mirgenedb-release 3.0] [--old-human-lib FILE] [--workdir DIR] [--threads N]
 #   --species        homo_sapiens | mus_musculus | rattus_norvegicus
 #   --outdir         writes <org>/ (human, mouse, rat: miRge3's -on name) and miRge3_lib_<species>.tar.gz
-#   --old-human-lib  human only: the miRge3 SourceForge human.tar.gz (2020). Its human tRNA set
-#                    (mature and pre-tRNA sequences, tRNA and tRF annotation) is kept unchanged,
-#                    because human_tRF_infor.csv and human_tRF_merges.csv (for --tRNA-frag) cannot
-#                    be rebuilt from public sources and name tRNAs of that set.
+#   --old-human-lib  human only: the miRge3 SourceForge human.tar.gz (2020), for its tRF clusters
+#                    (human_tRF_infor.csv, human_tRF_merges.csv; --tRNA-frag). They were derived from
+#                    data and cannot be rebuilt; those that still lie at their position in the new
+#                    tRNA sequences are kept (gcf_trna_changes.tsv lists kept and dropped).
 #   --workdir        downloads and intermediate files (default: a temporary directory)
 #
 # Sources (each recorded with URL, SHA-256 and date in gcf_sources.tsv):
 #   miRBase <release> mature/hairpin FASTA and genome GFF; MirGeneDB <release> mature, star and
 #   precursor FASTA and GFF; Ensembl <release> genome (bowtie index for --AtoI), cDNA (mRNA) and
-#   ncRNA (snoRNA, rRNA incl. rRNA_pseudogene, others); GtRNAdb mature tRNAs and loci (mouse, rat); UCSC RepeatMasker
+#   ncRNA (snoRNA, rRNA incl. rRNA_pseudogene, others); GtRNAdb mature tRNAs and loci (mouse, rat;
+#   human: the Hsapi38 tarball, also for its tRNAscan-SE structures); human mitochondrial tRNAs: the
+#   Ensembl Mt_tRNA genes (ncRNA FASTA), folded by tRNAscan-SE -M vert; UCSC RepeatMasker
 #   for the assembly of each miRNA GFF; SNVs inside mature miRNAs for the A-to-I SNP variants:
 #     human     dbSNP 157 COMMON (minor allele >= 1% in a 1000 Genomes population), GRCh38
 #     mouse     dbSNP 150 (GRCm38), for both databases; miRBase matures are placed on GRCm38 by
@@ -57,6 +59,7 @@ case $species in
         mirbase_rmsk=hg38 mirgenedb_rmsk=hg38
         mirbase_vcf=$ncbi/latest_release/VCF/GCF_000001405.40.gz mirbase_vcf_contigs=refseq mirbase_vcf_filter='INFO/COMMON=1'
         mirgenedb_vcf=$mirbase_vcf mirgenedb_vcf_contigs=refseq mirgenedb_vcf_filter='INFO/COMMON=1'
+        gtrnadb_name=Hsapi38/hg38 trna_genome=ensembl
         [[ -n $old_human && -s $old_human ]] || die "homo_sapiens needs --old-human-lib (miRge3 SourceForge human.tar.gz)" ;;
     mus_musculus)
         org=mouse code=mmu ens_name=Mus_musculus ens_asm=GRCm39 dna=primary_assembly
@@ -121,16 +124,16 @@ fetch "$ens/ncrna/$ncrna" "$src/$ncrna" fasta.gz
 for asm in $(printf '%s\n' "$mirbase_rmsk" "$mirgenedb_rmsk" | sort -u); do
     fetch "$ucsc/$asm/database/rmsk.txt.gz" "$src/rmsk_$asm.txt.gz"
 done
-if [[ -n $gtrnadb_name ]]; then
-    g=https://gtrnadb.ucsc.edu/genomes/eukaryota/$gtrnadb_name
+g=https://gtrnadb.ucsc.edu/genomes/eukaryota/$gtrnadb_name
+if [[ $org == human ]]; then
+    fetch "$g-tRNAs.tar.gz" "$src/gtrnadb-tRNAs.tar.gz"
+    report=https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GCF_000001405.40_GRCh38.p14_assembly_report.txt
+    fetch "$report" "$src/GRCh38.p14_assembly_report.txt"
+    record "human.tar.gz" "old miRge3 SourceForge library (tRF clusters)" "$old_human" "NA"
+else
     fetch "$g-mature-tRNAs.fa" "$src/gtrnadb-mature-tRNAs.fa" fasta
     fetch "$g-tRNAs.bed" "$src/gtrnadb-tRNAs.bed"
     [[ $trna_genome == rn7 ]] && fetch "$ucsc/rn7/bigZips/rn7.fa.gz" "$src/rn7.fa.gz" fasta.gz
-fi
-if [[ $org == human ]]; then
-    report=https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GCF_000001405.40_GRCh38.p14_assembly_report.txt
-    fetch "$report" "$src/GRCh38.p14_assembly_report.txt"
-    record "human.tar.gz" "old miRge3 SourceForge library (human tRNA set)" "$old_human" "NA"
 fi
 
 # ---- miRNAs -------------------------------------------------------------------------------------
@@ -185,16 +188,23 @@ done
 # ---- other RNA, tRNA, spike-ins -----------------------------------------------------------------
 py ncrna --ncrna "$src/$ncrna" --cdna "$src/$cdna" --outdir "$work"
 gzip -dc "$src/$genome" > "$work/genome.fa"
+trna_clusters=
 if [[ $org == human ]]; then
-    # The old human tRNA set, unchanged: sequences from its indexes, annotation files as they are.
-    tar -xzf "$old_human" -C "$work" --wildcards 'human/index.Libs/human_mature_trna.*' \
-        'human/index.Libs/human_pre_trna.*' 'human/annotation.Libs/human_trna*' 'human/annotation.Libs/human_tRF_*'
-    bowtie-inspect "$work/human/index.Libs/human_mature_trna" > "$work/mature_trna.fa"
-    bowtie-inspect "$work/human/index.Libs/human_pre_trna" > "$work/pre_trna.fa"
-    for f in trna.str trna_aminoacid_anticodon.csv trna_deduplicated_list.csv tRF_infor.csv tRF_merges.csv; do
-        cp "$work/human/annotation.Libs/human_$f" "$lib/annotation.Libs/"
-    done
-    trna_note="old miRge3 SourceForge human library (unchanged)"
+    # Nuclear tRNAs from GtRNAdb Hsapi38 (structures from its tRNAscan-SE detailed.ss), the Ensembl
+    # Mt_tRNA genes folded by tRNAscan-SE, 100 nt trailers, and the SourceForge tRF clusters that still
+    # lie at their position (its trna.str only for the anticodon check and the change list).
+    tar -xzf "$old_human" -C "$work" 'human/annotation.Libs/human_trna.str' \
+        'human/annotation.Libs/human_tRF_infor.csv' 'human/annotation.Libs/human_tRF_merges.csv'
+    py mt-trna --ncrna "$src/$ncrna" --out "$work/mt_trna.fa"
+    tRNAscan-SE -M vert -Q -q --brief -f "$work/mt_trna.ss" -o "$work/mt_trna.out" "$work/mt_trna.fa" \
+        > "$work/trnascan.log" 2>&1 || { cat "$work/trnascan.log" >&2; die "tRNAscan-SE failed"; }
+    py trna-human --gtrnadb "$src/gtrnadb-tRNAs.tar.gz" --genome "$work/genome.fa" --mt-fasta "$work/mt_trna.fa" \
+        --mt-ss "$work/mt_trna.ss" --old-annotation "$work/human/annotation.Libs" --outdir "$work" \
+        --annotation "$lib/annotation.Libs" --changes "$lib/gcf_trna_changes.tsv"
+    trnascan=$(tRNAscan-SE -h 2>&1 | grep -oE 'tRNAscan-SE [0-9.]+' | head -1 || true)
+    trna_note="GtRNAdb $gtrnadb_name mature tRNAs (+CCA; structures from its detailed.ss), Ensembl $ensembl Mt_tRNA genes (+CCA; structures from ${trnascan:-tRNAscan-SE} -M vert), 100 nt trailers"
+    count() { awk -F'\t' -v k="$1" -v c="$2" '$1 == k && $3 == c' "$lib/gcf_trna_changes.tsv" | wc -l; }
+    trna_clusters="SourceForge tRF clusters at their position in the new sequences: $(( $(count cluster kept) + $(count cluster renamed) )) kept ($(count cluster renamed) on renamed tRNAs), $(count cluster dropped) dropped; merge groups $(wc -l < "$lib/annotation.Libs/human_tRF_merges.csv") (gcf_trna_changes.tsv)"
 else
     prefix=$(head -1 "$src/gtrnadb-mature-tRNAs.fa" | sed -E 's/^>([A-Z][a-z]+_[a-z]+)_tRNA-.*/\1/')
     if [[ $trna_genome == ensembl ]]; then
@@ -266,6 +276,7 @@ printf 'database\trelease\nmirbase\t%s\nmirgenedb\t%s\n' "$mirbase" "$mirgenedb"
     printf 'mirgenedb_gff_assembly\t%s\n' "$(grep -m1 '^# genome-build-id' "$src/mirgenedb_$code.gff3" | awk '{print $NF}')"
     printf 'repeatmasker\tmiRBase: UCSC %s rmsk; MirGeneDB: UCSC %s rmsk\n' "$mirbase_rmsk" "$mirgenedb_rmsk"
     printf 'trna\t%s\n' "$trna_note"
+    [[ -z $trna_clusters ]] || printf 'trna_clusters\t%s\n' "$trna_clusters"
     printf 'spike_in\tgcf-workflows small RNA calibrators Cal01-Cal10\n'
     printf 'novel_mirna\tnot supported (no genome pickles)\n'
     printf 'bowtie\t%s\n' "$(bowtie-build --version | head -1)"

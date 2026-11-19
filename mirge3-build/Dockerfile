@@ -11,7 +11,9 @@ FROM mambaorg/micromamba:2.0.5
 # A local build tool, not published to Docker Hub: build it here (docker build -t
 # gcfntnu/mirge3-build:<version> .), build the libraries with it, and publish the libraries to the
 # release store. MIRGE3_BUILD is recorded in each library's gcf_manifest.tsv.
-ENV MIRGE3_BUILD=1.0.0
+# 1.1.0: human tRNA set from GtRNAdb Hsapi38 and Ensembl Mt_tRNA (tRNAscan-SE), tRF clusters carried
+# over (gcf-docker#52); CCA always added to mature tRNAs (gcf-docker#53).
+ENV MIRGE3_BUILD=1.1.0
 
 COPY --chown=$MAMBA_USER:$MAMBA_USER env.yml /tmp/env.yml
 RUN micromamba install -y -n base -f /tmp/env.yml && \
@@ -28,7 +30,8 @@ ENV PATH=/opt/conda/bin:/opt/mirge3-build:$PATH
 
 # Build checks: tools, unit tests, and the flank function against miRge-build's own.
 RUN bowtie-build --version | head -1 | grep -q 'version 1.3.1' && \
-    for t in bcftools bedtools samtools pigz curl bowtie-inspect; do command -v $t > /dev/null || exit 1; done && \
+    for t in bcftools bedtools samtools pigz curl bowtie-inspect tRNAscan-SE; do command -v $t > /dev/null || exit 1; done && \
+    tRNAscan-SE -h 2>&1 | grep -q 'tRNAscan-SE 2.0.12' && \
     python -I /opt/mirge3-build/tests/test_mirge3_lib.py && \
     python -c "import sys; sys.path.insert(0, '/opt/mirge3-build'); import mirge3_lib as m; \
 from mirge_build.blibs.miRge_bowtie_build import miRNA_miRge_format as f; \

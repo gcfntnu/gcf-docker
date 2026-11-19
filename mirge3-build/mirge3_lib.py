@@ -11,6 +11,10 @@ libraries (2020):
   ncrna         Ensembl ncRNA and cDNA FASTA -> snoRNA (identical sequences collapsed), rRNA
                 (rRNA and rRNA_pseudogene), others, mRNA (cDNA without rRNA_pseudogene)
   trna          GtRNAdb mature tRNAs (+CCA) and 100 nt genomic trailers (pre-tRNA)
+  mt-trna       Ensembl Mt_tRNA genes from the ncRNA FASTA (input for tRNAscan-SE -M vert)
+  trna-human    human tRNA set for --tRNA-frag: GtRNAdb nuclear tRNAs (structures from its
+                tRNAscan-SE detailed.ss), Ensembl mitochondrial tRNAs (structures from tRNAscan-SE),
+                trailers, and the SourceForge tRF clusters that still fit (gcf_trna_changes.tsv)
   fasta-dna     FASTA to upper-case DNA with first-token names (spike-ins, mRNA)
 
 Formats reproduced (from the SourceForge human library):
@@ -29,8 +33,11 @@ Only the Python standard library is used, so the unit tests run without the imag
 import argparse
 import gzip
 import re
+import shutil
+import subprocess
 import sys
-from collections import OrderedDict, defaultdict
+import tarfile
+from collections import Counter, OrderedDict, defaultdict
 from pathlib import Path
 
 SNP_LETTERS = 'ABDEFGHIJKLMNOPQRSTUVWXYZ'  # C marks the reference allele
@@ -430,11 +437,29 @@ def read_genome(path, wanted, rename):
     return seqs
 
 
+def add_cca(seq):
+    """Mature tRNA with the post-transcriptional CCA tail. GtRNAdb mature sequences never include
+    it, but some end in CCA by chance (discriminator A after CC), so it is always added. (Builder
+    1.0.0 skipped those; see gcf-docker#53.)"""
+    return seq + 'CCA'
+
+
+def trailers(loci, genome, length):
+    """pre-tRNA records: the genomic `length` nt downstream of each (chrom, start0, end, name, strand)
+    locus, named pre_<name>_trailer, and the names whose contig is not in `genome`."""
+    pre, skipped = [], []
+    for chrom, start, end, name, strand in loci:
+        g = genome.get(chrom)
+        if g is None:
+            skipped.append(name)
+            continue
+        trailer = g[end:end + length] if strand == '+' else revcomp(g[max(0, start - length):start])
+        pre.append((f'pre_{name}_trailer', trailer.upper()))
+    return pre, skipped
+
+
 def cmd_trna(args):
-    mature = []
-    for header, seq in read_fasta(args.mature):
-        seq = to_dna(seq)
-        mature.append((header.split()[0], seq if seq.endswith('CCA') else seq + 'CCA'))
+    mature = [(header.split()[0], add_cca(to_dna(seq))) for header, seq in read_fasta(args.mature)]
     names = {n for n, _ in mature}
     rename = {}
     for pair in args.rename or []:
@@ -449,20 +474,388 @@ def cmd_trna(args):
                 loci.append((args.chrom_prefix + norm_chrom(f[0]) if args.chrom_prefix is not None else f[0],
                              int(f[1]), int(f[2]), full, f[5]))
     genome = read_genome(args.genome, {c for c, *_ in loci}, rename)
-    pre, skipped = [], []
-    for chrom, start, end, name, strand in loci:
-        g = genome.get(chrom)
-        if g is None:
-            skipped.append(name)
-            continue
-        trailer = g[end:end + args.trailer] if strand == '+' else revcomp(g[max(0, start - args.trailer):start])
-        pre.append((f'pre_{name}_trailer', trailer.upper()))
+    pre, skipped = trailers(loci, genome, args.trailer)
     write_fasta(Path(args.outdir) / 'mature_trna.fa', mature)
     write_fasta(Path(args.outdir) / 'pre_trna.fa', pre)
     print(f'tRNA: {len(mature)} mature, {len(pre)} trailers, {len(skipped)} without genome contig '
           f'{skipped[:3]}', file=sys.stderr)
     if len(pre) < len(mature) * 0.9:
         die('fewer than 90% of the mature tRNAs got a trailer; check contig names')
+
+
+# --------------------------------------------------------------------------------------------------
+# human tRNA set for --tRNA-frag (mirge/libs/summary.py and mirge2_tRF_a2i.py in miRge3 0.1.4):
+#   <org>_trna.str                     name, sequence, dot-bracket with XXX over the anticodon; miRge3
+#                                      uses the length and anticodon position (5'/3' half vs tRF)
+#   <org>_trna_aminoacid_anticodon.csv name,aa,anticodon for every mature and pre_ name (KeyError otherwise)
+#   <org>_trna_deduplicated_list.csv   identical sequences, first name kept (the one-hit tRNA of a read)
+#   <org>_tRF_infor.csv                clusters: positions on a tRNA or trailer; a read is assigned to
+#                                      the nearest cluster on its one-hit tRNA within distance 8
+#   <org>_tRF_merges.csv               merge group per cluster (tRF.Counts.csv rows; KeyError otherwise)
+# The clusters were derived from data by the miRge authors and cannot be rebuilt; those that still
+# lie at their position in the new sequences are carried over.
+
+AA3 = dict(A='Ala', C='Cys', D='Asp', E='Glu', F='Phe', G='Gly', H='His', I='Ile', K='Lys', L='Leu',
+           M='Met', N='Asn', P='Pro', Q='Gln', R='Arg', S='Ser', T='Thr', V='Val', W='Trp', Y='Tyr')
+TRF_HEADER = 'tRNA cluster,locus,intron,RNA location,sequence,RNA sequence'
+
+
+def ensembl_contig(c):
+    """UCSC hg38 contig -> Ensembl GRCh38 name: chr1 -> 1, chrM -> MT, chr1_KI270713v1_random ->
+    KI270713.1, chrUn_GL000220v1 -> GL000220.1."""
+    m = re.fullmatch(r'chr(?:\w+?_)?([A-Z]{2}\d+)v(\d+)(?:_random|_alt|_fix)?', c)
+    return f'{m.group(1)}.{m.group(2)}' if m else norm_chrom(c)
+
+
+def parse_trnascan_ss(text):
+    """tRNAscan-SE secondary-structure output (-f, as GtRNAdb's *-tRNAs-detailed.ss) -> records:
+    id (e.g. chr1.trna4), seqname, start, end, aa, anticodon, ac_start (1-based, on the precursor),
+    intron ((start, end) on the precursor, or None), seq, str."""
+    recs = []
+    for block in re.split(r'\n\s*\n', text.strip()):
+        head = re.match(r'((\S+)\.trna\d+) \((\d+)-(\d+)\)', block)
+        typ = re.search(r'Type: (\S+)\s+Anticodon: (\S+) at (\d+)-(\d+)', block)
+        seq = re.search(r'^Seq: (\S+)', block, re.M)
+        st = re.search(r'^Str: (\S+)', block, re.M)
+        if not (head and typ and seq and st):
+            die(f'unexpected tRNAscan-SE block: {block[:120]!r}')
+        intron = re.search(r'Possible intron: (\d+)-(\d+)', block)
+        recs.append(dict(id=head.group(1), seqname=head.group(2), start=int(head.group(3)),
+                         end=int(head.group(4)), aa=typ.group(1), anticodon=typ.group(2),
+                         ac_start=int(typ.group(3)), seq=seq.group(1), str=st.group(1),
+                         intron=(int(intron.group(1)), int(intron.group(2))) if intron else None))
+    return recs
+
+
+def mature_structure(rec, length):
+    """(mature sequence, miRge3 structure, 1-based anticodon start) of a tRNAscan-SE record: intron
+    removed, <> written as (), XXX over the anticodon, '.' up to `length` (the CCA tail)."""
+    keep = range(len(rec['seq']))
+    if rec['intron']:
+        a, b = rec['intron']
+        if a <= rec['ac_start'] + 2:
+            die(f"{rec['id']}: intron {a}-{b} before the anticodon end")
+        keep = [k for k in keep if not a - 1 <= k <= b - 1]
+    mseq = to_dna(''.join(rec['seq'][k] for k in keep))
+    mst = ''.join(rec['str'][k] for k in keep).replace('>', '(').replace('<', ')')
+    ac = rec['ac_start'] - 1
+    mst = mst[:ac] + 'XXX' + mst[ac + 3:]
+    if len(mst) > length:
+        die(f"{rec['id']}: structure ({len(mst)}) longer than the sequence ({length})")
+    return mseq, mst + '.' * (length - len(mst)), ac + 1
+
+
+def read_trna_str(path):
+    """{name: (sequence, structure)} from a miRge3 <org>_trna.str."""
+    lines = [line.strip() for line in open(path) if line.strip()]
+    if len(lines) % 3 or not all(lines[i].startswith('>') for i in range(0, len(lines), 3)):
+        die(f'{path}: not name/sequence/structure triplets')
+    return {lines[i][1:]: (lines[i + 1], lines[i + 2]) for i in range(0, len(lines), 3)}
+
+
+def read_gtrnadb_tar(path):
+    """GtRNAdb <genome>-tRNAs.tar.gz -> {member suffix: text} for the files used."""
+    want = ('-mature-tRNAs.fa', '-tRNAs.bed', '-tRNAs-detailed.ss', '-tRNAs_name_map.txt')
+    out = {}
+    with tarfile.open(path) as tar:
+        for member in tar.getmembers():
+            for suffix in want:
+                if member.isfile() and member.name.endswith(suffix):
+                    out[suffix] = tar.extractfile(member).read().decode()
+    missing = [s for s in want if s not in out]
+    if missing:
+        die(f'{path}: no member ending in {missing}')
+    return out
+
+
+def fasta_text(text):
+    records, header = [], None
+    for line in text.splitlines():
+        if line.startswith('>'):
+            header = line[1:]
+            records.append([header, ''])
+        elif line.strip():
+            records[-1][1] += line.strip()
+    return [tuple(r) for r in records]
+
+
+def identical_groups(names, seq_of):
+    """Groups (2 or more names, in the given order) of identical sequences."""
+    groups = OrderedDict()
+    for n in names:
+        groups.setdefault(seq_of[n], []).append(n)
+    return [g for g in groups.values() if len(g) > 1]
+
+
+def cluster_locus(trna, start, end, info):
+    """Genomic locus of positions start..end (1-based) of a tRNA or pre_<tRNA>_trailer, as in the
+    SourceForge tRF_infor.csv: '<chrom>:<lo>-<hi><strand>' (chrom 'mito' for MT; the CCA tail left
+    out), and the tRNA's intron as '<lo>-<hi>' ('None' without one, and for trailers)."""
+    pre = trna.startswith('pre_') and trna.endswith('_trailer')
+    t = info[trna[4:-8] if pre else trna]
+    gs, ge, strand = t['gs'], t['ge'], t['strand']
+    intron = t['intron']
+    ilen = intron[1] - intron[0] + 1 if intron else 0
+    if pre:
+        pos = [ge + start, ge + end] if strand == '+' else [gs - end, gs - start]
+    else:
+        glen = ge - gs + 1 - ilen
+        end = min(end, glen)
+
+        def genomic(p):
+            q = p + ilen if intron and p >= intron[0] else p
+            return gs + q - 1 if strand == '+' else ge - q + 1
+        pos = [genomic(start), genomic(end)]
+    if intron and not pre:
+        a, b = intron
+        ipos = [gs + a - 1, gs + b - 1] if strand == '+' else [ge - b + 1, ge - a + 1]
+        intron_s = f'{min(ipos)}-{max(ipos)}'
+    else:
+        intron_s = 'None'
+    return f"{t['label']}:{min(pos)}-{max(pos)}{strand}", intron_s
+
+
+def cmd_mt_trna(args):
+    """Ensembl Mt_tRNA genes (ncRNA FASTA) -> FASTA named <symbol>:<chrom>:<strand>:<start>:<end>."""
+    recs = OrderedDict()
+    for header, seq in read_fasta(args.ncrna):
+        if 'gene_biotype:Mt_tRNA' not in header:
+            continue
+        loc = re.search(r'chromosome:[^:\s]+:([^:\s]+):(\d+):(\d+):(-?1)\b', header)
+        sym = re.search(r'gene_symbol:(\S+)', header)
+        gene = re.search(r'gene:(\S+)', header)
+        if not loc:
+            die(f'no chromosome location in {header}')
+        chrom, start, end, strand = loc.group(1), int(loc.group(2)), int(loc.group(3)), loc.group(4)
+        name = f"{sym.group(1) if sym else gene.group(1)}:{chrom}:{'+' if strand == '1' else '-'}:{start}:{end}"
+        recs.setdefault(name, to_dna(seq))
+    if len(recs) != args.expect:
+        die(f'{args.ncrna}: {len(recs)} Mt_tRNA genes, expected {args.expect}')
+    write_fasta(args.out, list(recs.items()))
+    print(f'Mt_tRNA: {len(recs)} genes from {args.ncrna}', file=sys.stderr)
+
+
+def cmd_trna_human(args):
+    org, changes = args.org, []
+    gt = read_gtrnadb_tar(args.gtrnadb)
+    # nuclear: GtRNAdb mature (+CCA), loci from its BED, structures from its tRNAscan-SE detailed.ss
+    mature = [(h.split()[0], add_cca(to_dna(s))) for h, s in fasta_text(gt['-mature-tRNAs.fa'])]
+    prefix = re.match(r'([A-Z][a-z]+_[a-z]+)_tRNA-', mature[0][0]).group(1)
+    name_map = {}
+    for line in gt['-tRNAs_name_map.txt'].splitlines()[1:]:
+        f = line.split('\t')
+        if len(f) >= 2:
+            name_map[f[0]] = f'{prefix}_{f[1]}'
+    ss = {name_map[r['id']]: r for r in parse_trnascan_ss(gt['-tRNAs-detailed.ss']) if r['id'] in name_map}
+    bed = {}
+    for line in gt['-tRNAs.bed'].splitlines():
+        f = line.split('\t')
+        if len(f) >= 6:
+            bed[f'{prefix}_{f[3]}'] = (f[0], int(f[1]), int(f[2]), f[5])
+    info, loci, nuclear, mito = {}, [], [], []
+    for name, seq in mature:
+        if name not in ss or name not in bed:
+            die(f'{name}: not in the GtRNAdb detailed.ss or BED')
+        mseq, st, ac = mature_structure(ss[name], len(seq))
+        if add_cca(mseq) != seq:
+            die(f'{name}: GtRNAdb detailed.ss sequence differs from the mature sequence')
+        aa, anticodon = re.match(r'.*?_tRNA-([A-Za-z]+)-([ACGTN]{3})-', name).groups()
+        chrom, s0, e, strand = bed[name]
+        info[name] = dict(seq=seq, str=st, ac=ac, aa=aa, anticodon=anticodon, label=chrom, gs=s0 + 1, ge=e,
+                          strand=strand, intron=ss[name]['intron'], source='GtRNAdb')
+        loci.append((ensembl_contig(chrom), s0, e, name, strand))
+        nuclear.append(name)
+    # mitochondrial: Ensembl Mt_tRNA loci (+CCA), amino acid, anticodon and structure from tRNAscan-SE
+    hits = defaultdict(list)
+    for r in parse_trnascan_ss(open(args.mt_ss).read()):
+        hits[r['seqname']].append(r)
+    for gname, gseq in read_fasta(args.mt_fasta):
+        sym, chrom, strand, start, end = gname.split(':')
+        h = hits.get(gname, [])
+        if len(h) != 1 or (h[0]['start'], h[0]['end']) != (1, len(gseq)):
+            die(f'{gname}: expected one full-length tRNAscan-SE hit, got {[(x["start"], x["end"]) for x in h]}')
+        r = h[0]
+        sym_aa = re.fullmatch(r'mt-t([a-z])\d?', sym, re.I)
+        if sym_aa and AA3[sym_aa.group(1).upper()] != r['aa']:
+            die(f'{gname}: tRNAscan-SE calls it {r["aa"]}')
+        mseq, st, ac = mature_structure(r, len(gseq) + 3)
+        if mseq != gseq:
+            die(f'{gname}: tRNAscan-SE sequence differs from the Ensembl sequence')
+        name = f"trnaMT_{r['aa']}{r['anticodon']}_MT_{strand}_{start}_{end}"
+        info[name] = dict(seq=add_cca(gseq), str=st, ac=ac, aa=r['aa'], anticodon=r['anticodon'], label='mito',
+                          gs=int(start), ge=int(end), strand=strand, intron=None, source=f'Ensembl {sym}')
+        loci.append((chrom, int(start) - 1, int(end), name, strand))
+        mito.append(name)
+    genome = read_genome(args.genome, {c for c, *_ in loci}, {})
+    for chrom, s0, e, name, strand in loci:
+        if name in mito:
+            g = genome[chrom][s0:e].upper()
+            if add_cca(g if strand == '+' else revcomp(g)) != info[name]['seq']:
+                die(f'{name}: Ensembl sequence differs from the genome')
+    pre, skipped = trailers(loci, genome, args.trailer)
+    if skipped:
+        die(f'no genome contig for the trailers of {skipped}')
+    pre_seq = dict(pre)
+    write_fasta(Path(args.outdir) / 'mature_trna.fa', [(n, info[n]['seq']) for n in nuclear + mito])
+    write_fasta(Path(args.outdir) / 'pre_trna.fa', pre)
+
+    # annotation, in the order of the SourceForge files: nuclear names sorted, then MT by position
+    order = sorted(nuclear) + sorted(mito, key=lambda n: info[n]['gs'])
+    pres = [f'pre_{n}_trailer' for n in order]
+    ann = Path(args.annotation)
+    ann.mkdir(parents=True, exist_ok=True)
+    with open(ann / f'{org}_trna.str', 'w') as fh:
+        fh.writelines(f">{n}\n{info[n]['seq']}\n{info[n]['str']}\n" for n in order)
+    with open(ann / f'{org}_trna_aminoacid_anticodon.csv', 'w') as fh:
+        fh.writelines(f"{n},{info[n]['aa']},{info[n]['anticodon']}\n" for n in order)
+        fh.writelines(f"{p},{info[n]['aa']},{info[n]['anticodon']}\n" for n, p in zip(order, pres))
+    seq_of = {n: info[n]['seq'] for n in order}
+    seq_of.update(pre_seq)
+    dedup = identical_groups(order, seq_of) + identical_groups(sorted(pres), seq_of)
+    with open(ann / f'{org}_trna_deduplicated_list.csv', 'w') as fh:
+        fh.write('kept tRNA,tRNA list\n')
+        fh.writelines(f"{g[0]},{'/'.join(g)}\n" for g in dedup)
+
+    old_dir = Path(args.old_annotation)
+    old = read_trna_str(old_dir / f'{org}_trna.str')
+    rows = [line.rstrip('\n').split(',') for line in open(old_dir / f'{org}_tRF_infor.csv')]
+    if ','.join(rows[0]) != TRF_HEADER:
+        die(f'unexpected header in {old_dir}/{org}_tRF_infor.csv: {rows[0]}')
+    rows = rows[1:]
+
+    def base(t):  # tRNA of a tRNA or pre_<tRNA>_trailer name
+        return t[4:-8] if t.startswith('pre_') and t.endswith('_trailer') else t
+
+    def placed(r, t):  # (cluster sequence at its position of t, same locus as before)
+        s, e = map(int, r[3].split('-'))
+        return seq_of.get(t, '')[s - 1:e] == r[4], t in seq_of and cluster_locus(t, s, e, info) == (r[1], r[2])
+
+    # renamed since the SourceForge set: an old name gone, one new name (not in the old set) with the same
+    # sequence, and every cluster of the old name at the same position and genomic locus under the new name
+    renamed = {}
+    for o, (oseq, _) in old.items():
+        cand = [n for n in order if n not in old and info[n]['seq'] == oseq]
+        if o in info or len(cand) != 1:
+            continue
+        mine = [r for r in rows if base(r[0].split('_Cluster')[0]) == o]
+        if all(placed(r, r[0].split('_Cluster')[0].replace(o, cand[0], 1)) == (True, True) for r in mine):
+            renamed[o] = cand[0]
+    was = {n: o for o, n in renamed.items()}
+
+    # tRNAs compared with the SourceForge set; the anticodon must stay where it was
+    for n in order:
+        o = n if n in old else was.get(n)
+        if o is None:
+            changes.append(('tRNA', n, 'new', info[n]['source']))
+            continue
+        os_, ost = old[o]
+        if os_ != info[n]['seq']:
+            changes.append(('tRNA', n, 'changed', f"{info[n]['source']}; sequence differs from SourceForge"))
+            continue
+        if ost.find('XXX') + 1 != info[n]['ac']:
+            die(f"{n}: anticodon at {info[n]['ac']}, SourceForge structure has it at {ost.find('XXX') + 1}")
+        detail = 'same sequence and structure' if ost == info[n]['str'] else 'same sequence and anticodon; structure differs'
+        if o != n:
+            changes.append(('tRNA', n, 'renamed', f"{info[n]['source']}; SourceForge name {o}; {detail}"))
+        else:
+            changes.append(('tRNA', n, 'kept', f"{info[n]['source']}; {detail}"))
+    for o in old:
+        if o not in info and o not in renamed:
+            changes.append(('tRNA', o, 'dropped', 'in the GtRNAdb BED but not its mature (high-confidence) set'
+                            if o in bed else 'not in the new set'))
+
+    # clusters: kept where the tRNA (or trailer) exists, under its new name if renamed, and the
+    # sequence is at the same position
+    kept, out_rows, new_name = set(), [], {}
+    for r in rows:
+        cname, old_locus, old_intron, loc, cseq = r[:5]
+        t = cname.split('_Cluster')[0]
+        if base(t) in renamed:
+            t2 = t.replace(base(t), renamed[base(t)], 1)
+            new_name[cname] = cname.replace(t, t2, 1)
+            t = t2
+        c2 = new_name.get(cname, cname)
+        if t not in seq_of:
+            changes.append(('cluster', cname, 'dropped', f'{t} not in the new set'))
+            continue
+        if not placed(r, t)[0]:
+            changes.append(('cluster', cname, 'dropped', f'sequence not at {loc} of {t}'))
+            continue
+        s, e = map(int, loc.split('-'))
+        locus, intron = cluster_locus(t, s, e, info)
+        out_rows.append([c2, locus, intron, loc, cseq, seq_of[t]])
+        kept.add(c2)
+        detail = 'locus as before' if (locus, intron) == (old_locus, old_intron) else \
+            f'locus {old_locus} {old_intron} -> {locus} {intron}'
+        if c2 != cname:
+            changes.append(('cluster', c2, 'renamed', f'SourceForge name {cname}; {detail}'))
+        else:
+            changes.append(('cluster', cname, 'kept', detail))
+    with open(ann / f'{org}_tRF_infor.csv', 'w') as fh:
+        fh.write(TRF_HEADER + '\n')
+        fh.writelines(','.join(r) + '\n' for r in out_rows)
+    groups = []
+    for line in open(old_dir / f'{org}_tRF_merges.csv'):
+        if not line.strip():
+            continue
+        gname, members = line.rstrip('\n').split(',', 1)
+        members = [new_name.get(c, c) for c in members.split('/')]
+        keep = [c for c in members if c in kept]
+        if not keep:
+            changes.append(('merge', gname, 'dropped', f'all {len(members)} clusters dropped'))
+            continue
+        groups.append((gname, keep))
+        if len(keep) < len(members):
+            changes.append(('merge', gname, 'pruned', f'{len(members) - len(keep)} of {len(members)} clusters dropped'))
+    in_groups = Counter(c for _, k in groups for c in k)
+    bad = sorted(c for c in kept if in_groups[c] != 1)
+    if bad:
+        die(f'clusters not in exactly one merge group: {bad[:5]}')
+    with open(ann / f'{org}_tRF_merges.csv', 'w') as fh:
+        fh.writelines(f"{g},{'/'.join(k)}\n" for g, k in groups)
+    with open(args.changes, 'w') as fh:
+        fh.write('kind\tname\tchange\tdetail\n')
+        fh.writelines('\t'.join(c) + '\n' for c in changes)
+    n = Counter((c[0], c[2]) for c in changes)
+    print(f'tRNA: {len(nuclear)} GtRNAdb + {len(mito)} Ensembl MT mature, {len(pre)} trailers; SourceForge tRNAs '
+          f"kept {n['tRNA', 'kept']}, renamed {n['tRNA', 'renamed']}, new {n['tRNA', 'new']}, dropped "
+          f"{n['tRNA', 'dropped']}; clusters kept {n['cluster', 'kept']}, renamed {n['cluster', 'renamed']}, "
+          f"dropped {n['cluster', 'dropped']}; merge groups {len(groups)} "
+          f"({n['merge', 'dropped']} dropped, {n['merge', 'pruned']} pruned)", file=sys.stderr)
+
+
+def trna_annotation_problems(ann, org, mature_names, pre_names):
+    """What miRge3 0.1.4 --tRNA-frag would trip over in a library's tRNA annotation (KeyErrors in
+    summary.py and mirge2_tRF_a2i.py, or tRNAs it cannot type)."""
+    ann, problems = Path(ann), []
+    names = set(mature_names) | set(pre_names)
+    st = read_trna_str(ann / f'{org}_trna.str')
+    problems += [f'{n}: not in {org}_trna.str' for n in mature_names if n not in st]
+    problems += [f'{n}: structure needs one XXX and the sequence length' for n, (s, x) in st.items()
+                 if x.count('XXX') != 1 or len(x) != len(s)]
+    aa = {line.split(',')[0] for line in open(ann / f'{org}_trna_aminoacid_anticodon.csv') if line.strip()}
+    problems += [f'{n}: no amino acid/anticodon row' for n in sorted(names - aa)]
+    dedup = [line.rstrip('\n').split(',') for line in open(ann / f'{org}_trna_deduplicated_list.csv')][1:]
+    problems += [f'{x}: in the deduplicated list, not in an index' for g in dedup for x in g[1].split('/')
+                 if x not in names]
+    clusters = {}
+    for r in [line.rstrip('\n').split(',') for line in open(ann / f'{org}_tRF_infor.csv')][1:]:
+        clusters[r[0]] = r[0].split('_Cluster')[0]
+    problems += [f'{c}: tRNA {t} not in an index' for c, t in clusters.items() if t not in names]
+    groups = Counter()
+    for line in open(ann / f'{org}_tRF_merges.csv'):
+        if line.strip():
+            groups.update(line.rstrip('\n').split(',', 1)[1].split('/'))
+    problems += [f'{c}: in {groups[c]} merge groups' for c in clusters if groups[c] != 1]
+    problems += [f'{c}: in a merge group, not a cluster' for c in groups if c not in clusters]
+    return problems
+
+
+def index_names(prefix):
+    if not shutil.which('bowtie-inspect'):
+        die('bowtie-inspect is needed for --trna-annotation')
+    out = subprocess.run(['bowtie-inspect', '-n', str(prefix)], check=True, capture_output=True, text=True).stdout
+    return [line.split()[0] for line in out.splitlines() if line.strip()]
 
 
 def cmd_fasta_dna(args):
@@ -522,6 +915,14 @@ def cmd_check_lib(args):
         die(f'library {lib} is incomplete: missing {missing}, empty {empty}')
     print(f'library {lib}: all {len(library_files(args.org, args.trna_annotation))} files present',
           file=sys.stderr)
+    if args.trna_annotation:
+        idx = lib / 'index.Libs'
+        problems = trna_annotation_problems(lib / 'annotation.Libs', args.org,
+                                            index_names(idx / f'{args.org}_mature_trna'),
+                                            index_names(idx / f'{args.org}_pre_trna'))
+        if problems:
+            die(f'tRNA annotation of {lib}: {len(problems)} problems, e.g. {problems[:5]}')
+        print(f'library {lib}: tRNA annotation consistent with the tRNA indexes', file=sys.stderr)
 
 
 def main(argv=None):
@@ -556,6 +957,23 @@ def main(argv=None):
     s.add_argument('--rename', nargs='*', help='genome contig renames, old=new')
     s.add_argument('--trailer', type=int, default=100)
     s.set_defaults(func=cmd_trna)
+    s = sub.add_parser('mt-trna')
+    s.add_argument('--ncrna', required=True, help='Ensembl ncRNA FASTA')
+    s.add_argument('--out', required=True)
+    s.add_argument('--expect', type=int, default=22, help='number of Mt_tRNA genes required')
+    s.set_defaults(func=cmd_mt_trna)
+    s = sub.add_parser('trna-human')
+    s.add_argument('--gtrnadb', required=True, help='GtRNAdb <genome>-tRNAs.tar.gz')
+    s.add_argument('--genome', required=True, help='Ensembl genome FASTA (contig names 1, MT, KI270713.1)')
+    s.add_argument('--mt-fasta', required=True, help='mt-trna output')
+    s.add_argument('--mt-ss', required=True, help='tRNAscan-SE -M vert -f output for --mt-fasta')
+    s.add_argument('--old-annotation', required=True, help='SourceForge annotation.Libs (tRF clusters)')
+    s.add_argument('--outdir', required=True, help='writes mature_trna.fa and pre_trna.fa')
+    s.add_argument('--annotation', required=True, help='library annotation.Libs')
+    s.add_argument('--changes', required=True, help='gcf_trna_changes.tsv')
+    s.add_argument('--org', default='human')
+    s.add_argument('--trailer', type=int, default=100)
+    s.set_defaults(func=cmd_trna_human)
     s = sub.add_parser('fasta-dna')
     s.add_argument('--out', required=True)
     s.add_argument('--keep-header', action='store_true')
