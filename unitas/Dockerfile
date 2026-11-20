@@ -1,6 +1,6 @@
 FROM gcfntnu/build-base:22.04
 
-# unitas 1.8.0 with GCF fixes (image tag 1.8.0-5).
+# unitas 1.8.0 with GCF fixes (image tag 1.8.0-6).
 #   1.8.0-1: offline build and workflow fixes, see unitas-1.8.0-1.patch.
 #   1.8.0-2: unitas_build_refdump.sh strips own species prefixes from miRBase hairpin names
 #            (unitas_normalize_hairpin.awk, gcfntnu/gcf-docker#8). unitas.pl is unchanged.
@@ -12,6 +12,12 @@ FROM gcfntnu/build-base:22.04
 #   1.8.0-5: unitas_build_refdump.sh downloads piRNA clusters from piRNAclusterDB and SILVA 132 rRNA
 #            (unitas_silva_species.awk) instead of copying them from an old dump; only tRF-1 and
 #            tRNA leaders still come from --static-dir. unitas.pl is unchanged.
+#   1.8.0-6: -refdump names Ensembl ncRNA records without a gene symbol by the transcript ID without
+#            the FASTA '>', and keeps the gene ID in the names of a gene's further transcripts
+#            (<symbol>-<gene>_(n)); before, those keys could merge transcripts of genes sharing a
+#            symbol into one record (unitas-1.8.0-6.patch, gcfntnu/gcf-docker#56).
+#            unitas_build_refdump.sh rejects dumps with either kind of name, and removes the
+#            '>' inside the static rat tRF-1 and tRNA-leader names (tRF-1_>#297).
 #
 # The upstream host (www.smallrnagroup.uni-mainz.de) is gone, so the script and SeqMap are
 # supplied locally in files/ (git-ignored; local builds only):
@@ -26,8 +32,9 @@ FROM gcfntnu/build-base:22.04
 # piRNAclusterDB and SILVA.
 
 ENV UNITAS_VERSION=1.8.0
-ENV UNITAS_BUILD=1.8.0-5
+ENV UNITAS_BUILD=1.8.0-6
 ARG UNITAS_PATCH=unitas-1.8.0-1.patch
+ARG UNITAS_PATCH_REFDUMP=unitas-1.8.0-6.patch
 ENV PATH=/opt/unitas:$PATH
 
 RUN apt-get update --fix-missing && apt-get install -y \
@@ -56,13 +63,14 @@ RUN cpanm LWP::Simple \
     Scalar::Util
 
 WORKDIR /opt/unitas
-COPY files/unitas_${UNITAS_VERSION}.pl files/seqmap.exe ${UNITAS_PATCH} unitas_build_refdump.sh unitas_normalize_hairpin.awk \
+COPY files/unitas_${UNITAS_VERSION}.pl files/seqmap.exe ${UNITAS_PATCH} ${UNITAS_PATCH_REFDUMP} unitas_build_refdump.sh unitas_normalize_hairpin.awk \
      unitas_mirgenedb2mirbase.awk unitas_silva_species.awk mirgenedb_species.tsv ./
 RUN dos2unix unitas_${UNITAS_VERSION}.pl
 # Legacy header-length patches (already present in the script from gcfntnu/unitas:1.8.0; no-ops then)
 RUN sed -i 's/head>30/head>1000/; s/head,0,27/head,0,1000/' unitas_${UNITAS_VERSION}.pl
 RUN patch unitas_${UNITAS_VERSION}.pl < ${UNITAS_PATCH} \
-    && rm ${UNITAS_PATCH} \
+    && patch unitas_${UNITAS_VERSION}.pl < ${UNITAS_PATCH_REFDUMP} \
+    && rm ${UNITAS_PATCH} ${UNITAS_PATCH_REFDUMP} \
     && perl -c unitas_${UNITAS_VERSION}.pl
 RUN ln -s unitas_${UNITAS_VERSION}.pl unitas.pl \
     && chmod 755 /opt/unitas/unitas* /opt/unitas/seqmap.exe \
