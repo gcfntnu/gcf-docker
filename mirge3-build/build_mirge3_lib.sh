@@ -14,7 +14,8 @@
 # Sources (each recorded with URL, SHA-256 and date in gcf_sources.tsv):
 #   miRBase <release> mature/hairpin FASTA and genome GFF; MirGeneDB <release> mature, star and
 #   precursor FASTA and GFF; Ensembl <release> genome (bowtie index for --AtoI), cDNA (mRNA) and
-#   ncRNA (snoRNA, rRNA incl. rRNA_pseudogene, others); GtRNAdb mature tRNAs and loci (mouse, rat;
+#   ncRNA (snoRNA, rRNA incl. rRNA_pseudogene, others); RefSeq mature 18S, 5.8S and 28S rRNA (human,
+#   mouse; NCBI E-utilities, exact versions); GtRNAdb mature tRNAs and loci (mouse, rat;
 #   human: the Hsapi38 tarball, also for its tRNAscan-SE structures); mitochondrial tRNAs: the
 #   Ensembl Mt_tRNA genes (ncRNA FASTA), named (and for human folded) by tRNAscan-SE -M vert;
 #   UCSC RepeatMasker for the assembly of each miRNA GFF; SNVs inside mature miRNAs for the A-to-I
@@ -54,6 +55,9 @@ lib_py=$here/mirge3_lib.py
 ncbi=https://ftp.ncbi.nih.gov/snp
 ucsc=https://hgdownload.soe.ucsc.edu/goldenPath
 gtrnadb_name= mirbase_snv_release= mirbase_snv_assembly=
+# rDNA rRNAs that Ensembl doesn't annotate (gcf-docker#54): the mature 18S, 5.8S and 28S of one reference unit,
+# as RefSeq accession:gene; rat has Rn18s and Rn28s in Ensembl.
+rrna_refseq=
 case $species in
     homo_sapiens)
         org=human code=hsa ens_name=Homo_sapiens ens_asm=GRCh38 dna=primary_assembly
@@ -61,6 +65,7 @@ case $species in
         mirbase_vcf=$ncbi/latest_release/VCF/GCF_000001405.40.gz mirbase_vcf_contigs=refseq mirbase_vcf_filter='INFO/COMMON=1'
         mirgenedb_vcf=$mirbase_vcf mirgenedb_vcf_contigs=refseq mirgenedb_vcf_filter='INFO/COMMON=1'
         gtrnadb_name=Hsapi38/hg38 trna_genome=ensembl
+        rrna_refseq='NR_003286.4:RNA18SN5 NR_003285.3:RNA5-8SN5 NR_003287.4:RNA28SN5'
         [[ -n $old_human && -s $old_human ]] || die "homo_sapiens needs --old-human-lib (miRge3 SourceForge human.tar.gz)" ;;
     mus_musculus)
         org=mouse code=mmu ens_name=Mus_musculus ens_asm=GRCm39 dna=primary_assembly
@@ -68,7 +73,9 @@ case $species in
         mirbase_vcf=$ncbi/organisms/archive/mouse_10090/VCF/00-All.vcf.gz mirbase_vcf_contigs=ensembl mirbase_vcf_filter=
         mirbase_snv_release=22.1 mirbase_snv_assembly=GRCm38
         mirgenedb_vcf=$mirbase_vcf mirgenedb_vcf_contigs=ensembl mirgenedb_vcf_filter=
-        gtrnadb_name=Mmusc39/mm39 trna_genome=ensembl ;;
+        gtrnadb_name=Mmusc39/mm39 trna_genome=ensembl
+        # = 18S, 5.8S and 28S of the rDNA unit BK000964.3 (4008-5877, 6878-7034, 8123-12852)
+        rrna_refseq='NR_003278.3:Rn18s NR_003280.2:Rs5-8s1 NR_003279.1:Rn28s1' ;;
     rattus_norvegicus)
         org=rat code=rno ens_name=Rattus_norvegicus ens_asm=GRCr8 dna=toplevel
         mirbase_rmsk=rn6 mirgenedb_rmsk=rn6
@@ -122,6 +129,15 @@ genome=$ens_name.$ens_asm.dna.$dna.fa.gz cdna=$ens_name.$ens_asm.cdna.all.fa.gz 
 fetch "$ens/dna/$genome" "$src/$genome" fasta.gz
 fetch "$ens/cdna/$cdna" "$src/$cdna" fasta.gz
 fetch "$ens/ncrna/$ncrna" "$src/$ncrna" fasta.gz
+extra_rrna=() rrna_note="Ensembl $ensembl rRNA and rRNA_pseudogene"
+for r in $rrna_refseq; do
+    acc=${r%%:*}
+    fetch "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$acc&rettype=fasta&retmode=text&tool=gcf-mirge3-build" \
+        "$src/refseq_$acc.fa" fasta
+    extra_rrna+=("$src/refseq_$acc.fa")
+done
+[[ ${#extra_rrna[@]} -eq 0 ]] || extra_rrna=(--extra-rrna "${extra_rrna[@]}")
+[[ -z $rrna_refseq ]] || rrna_note+="; RefSeq $(for r in $rrna_refseq; do printf '%s (%s), ' "${r%%:*}" "${r#*:}"; done | sed 's/, $//')"
 for asm in $(printf '%s\n' "$mirbase_rmsk" "$mirgenedb_rmsk" | sort -u); do
     fetch "$ucsc/$asm/database/rmsk.txt.gz" "$src/rmsk_$asm.txt.gz"
 done
@@ -187,7 +203,7 @@ for db in miRBase MirGeneDB; do
 done
 
 # ---- other RNA, tRNA, spike-ins -----------------------------------------------------------------
-py ncrna --ncrna "$src/$ncrna" --cdna "$src/$cdna" --outdir "$work"
+py ncrna --ncrna "$src/$ncrna" --cdna "$src/$cdna" --outdir "$work" "${extra_rrna[@]}"
 gzip -dc "$src/$genome" > "$work/genome.fa"
 trna_clusters=
 # Mitochondrial tRNAs, all species: the Ensembl Mt_tRNA genes (ncRNA FASTA), whose amino acid,
@@ -284,6 +300,7 @@ printf 'database\trelease\nmirbase\t%s\nmirgenedb\t%s\n' "$mirbase" "$mirgenedb"
     printf 'mirbase_gff_assembly\t%s\n' "$(grep -m1 '^# genome-build-id' "$src/mirbase_$code.gff3" | awk '{print $NF}')"
     printf 'mirgenedb_gff_assembly\t%s\n' "$(grep -m1 '^# genome-build-id' "$src/mirgenedb_$code.gff3" | awk '{print $NF}')"
     printf 'repeatmasker\tmiRBase: UCSC %s rmsk; MirGeneDB: UCSC %s rmsk\n' "$mirbase_rmsk" "$mirgenedb_rmsk"
+    printf 'rrna\t%s\n' "$rrna_note"
     printf 'trna\t%s\n' "$trna_note"
     [[ -z $trna_clusters ]] || printf 'trna_clusters\t%s\n' "$trna_clusters"
     printf 'spike_in\tgcf-workflows small RNA calibrators Cal01-Cal10\n'

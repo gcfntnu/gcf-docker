@@ -239,6 +239,21 @@ class Other(unittest.TestCase):
             self.assertEqual([h.split()[0] for h, _ in fasta(t / 'o/rrna.fa')], ['C2.1', 'T3.1'])
             self.assertEqual([h.split()[0] for h, _ in fasta(t / 'o/mrna.fa')], ['C1.1'])
             self.assertEqual([h.split()[0] for h, _ in fasta(t / 'o/ncrna_others.fa')], ['T5.1', 'T6.1'])
+            # gcf-docker#54: RefSeq 18S/5.8S/28S appended after the Ensembl rRNAs, names kept, U -> T
+            s18 = write(t / 'NR_1.fa', '>NR_003286.4 Homo sapiens RNA, 18S ribosomal N5 (RNA18SN5)\nacgu\nAC\n')
+            s58 = write(t / 'NR_2.fa', '>NR_003285.3 Homo sapiens RNA, 5.8S ribosomal N5 (RNA5-8SN5)\nGGGG\n')
+            m.main(['ncrna', '--ncrna', nc, '--cdna', cdna, '--outdir', str(t / 'x'), '--extra-rrna', s18, s58])
+            self.assertEqual(fasta(t / 'x/rrna.fa')[2:], [
+                ('NR_003286.4 Homo sapiens RNA, 18S ribosomal N5 (RNA18SN5)', 'ACGTAC'),
+                ('NR_003285.3 Homo sapiens RNA, 5.8S ribosomal N5 (RNA5-8SN5)', 'GGGG')])
+            self.assertEqual([h.split()[0] for h, _ in fasta(t / 'x/rrna.fa')][:2], ['C2.1', 'T3.1'])
+            for what, text, message in (
+                    ('two records', '>NR_003286.4 a\nACGT\n>NR_003287.4 b\nACGT\n', 'expected one rRNA record, found 2'),
+                    ('no version', '>NR_003286 18S\nACGT\n', 'must start with accession.version'),
+                    ('non-ACGT base', '>NR_003286.4 18S\nACGNT\n', 'bases other than ACGT')):
+                with self.subTest(what), self.assertRaisesRegex(SystemExit, message):
+                    m.main(['ncrna', '--ncrna', nc, '--cdna', cdna, '--outdir', str(t / 'y'),
+                            '--extra-rrna', write(t / 'bad.fa', text)])
 
     def test_trna(self):
         with tempfile.TemporaryDirectory() as tmp:
