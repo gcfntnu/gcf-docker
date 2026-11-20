@@ -9,7 +9,9 @@ human) for miRBase and MirGeneDB, as uid 1000 with a read-only root filesystem, 
   * reads of a group of identical sequences are counted under the group name;
   * spike-in and mature tRNA reads reach the annotation report;
   * human (--tRNA-frag): reads equal to a nuclear, a mitochondrial and a trailer (tRF-1) cluster
-    are counted under the cluster's merge group in tRF.Counts.csv.
+    are counted under the cluster's merge group in tRF.Counts.csv;
+  * mouse, rat: a read inside a mitochondrial tRNA and a 3' read ending in the CCA tail of a tRNA
+    whose GtRNAdb sequence ends in CCA are counted as mature tRNA (gcf-docker#53).
 
 Usage: tests/smoke_mirge3.py --lib DIR (the dir holding <org>/) --org human|mouse|rat --out DIR
        [--image quay.io/biocontainers/mirge3:0.1.4--pyh7cba7a3_0]
@@ -118,6 +120,17 @@ def trf_reads(mature, pre, lib, org, avoid_read):
     return [(g, c, s, n) for (g, c, s, _), n in zip(picks, (14, 9, 11))]
 
 
+def mt_cca_reads(mature):
+    """mouse, rat (gcf-docker#53): (tRNA, read, copies) for a 30 nt read inside a mitochondrial tRNA,
+    and for the 3' 22 nt of a nuclear tRNA ending in CCACCA (GtRNAdb sequence ending in CCA, plus the
+    added tail)."""
+    mt = [(n, s) for n, s in mature.items() if n.startswith('trnaMT_')]
+    cca = [(n, s) for n, s in mature.items() if not n.startswith('trnaMT_') and s.endswith('CCACCA')]
+    if not mt or not cca:
+        sys.exit(f'smoke test: {len(mt)} mitochondrial tRNAs, {len(cca)} ending in CCACCA in the mature tRNA index')
+    return [(mt[0][0], mt[0][1][10:40], 8), (cca[0][0], cca[0][1][-22:], 7)]
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--lib', required=True)
@@ -135,12 +148,16 @@ def main():
         trf = trf_reads(mature, dict(bowtie_inspect(a.image, lib, a.org, 'pre_trna')), lib, a.org, trna)
         for g, c, s, n in trf:
             print(f'tRF read {s} ({c}, group {g}) x {n}')
-    n_mature = 12 + sum(n for g, c, s, n in trf if not c.startswith('pre_'))
+    mt_cca = mt_cca_reads(mature) if a.org != 'human' else []
+    for c, s, n in mt_cca:
+        print(f'tRNA read {s} ({c}) x {n}')
+    n_mature = 12 + sum(n for g, c, s, n in trf if not c.startswith('pre_')) + sum(n for c, s, n in mt_cca)
     n_primary = sum(n for g, c, s, n in trf if c.startswith('pre_'))
     failures = []
     for db in ('miRBase', 'MirGeneDB'):
         reads, expected, snp, ident = pick(lib, a.org, db)
-        extra = [spike] * 15 + [trna] * 12 + [s for g, c, s, n in trf for _ in range(n)]
+        extra = ([spike] * 15 + [trna] * 12 + [s for g, c, s, n in trf for _ in range(n)]
+                 + [s for c, s, n in mt_cca for _ in range(n)])
         fq = out / f'smoke_{db}.fastq'
         write_fastq(fq, reads, extra)
         run = out / f'run_{db}'

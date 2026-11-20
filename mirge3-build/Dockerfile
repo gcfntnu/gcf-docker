@@ -13,7 +13,8 @@ FROM mambaorg/micromamba:2.0.5
 # release store. MIRGE3_BUILD is recorded in each library's gcf_manifest.tsv.
 # 1.1.0: human tRNA set from GtRNAdb Hsapi38 and Ensembl Mt_tRNA (tRNAscan-SE), tRF clusters carried
 # over (gcf-docker#52); CCA always added to mature tRNAs (gcf-docker#53).
-ENV MIRGE3_BUILD=1.1.0
+# 1.2.0: mouse and rat get the Ensembl Mt_tRNA genes too, named by tRNAscan-SE (gcf-docker#53).
+ENV MIRGE3_BUILD=1.2.0
 
 COPY --chown=$MAMBA_USER:$MAMBA_USER env.yml /tmp/env.yml
 RUN micromamba install -y -n base -f /tmp/env.yml && \

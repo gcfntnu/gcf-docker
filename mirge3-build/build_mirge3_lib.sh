@@ -15,9 +15,10 @@
 #   miRBase <release> mature/hairpin FASTA and genome GFF; MirGeneDB <release> mature, star and
 #   precursor FASTA and GFF; Ensembl <release> genome (bowtie index for --AtoI), cDNA (mRNA) and
 #   ncRNA (snoRNA, rRNA incl. rRNA_pseudogene, others); GtRNAdb mature tRNAs and loci (mouse, rat;
-#   human: the Hsapi38 tarball, also for its tRNAscan-SE structures); human mitochondrial tRNAs: the
-#   Ensembl Mt_tRNA genes (ncRNA FASTA), folded by tRNAscan-SE -M vert; UCSC RepeatMasker
-#   for the assembly of each miRNA GFF; SNVs inside mature miRNAs for the A-to-I SNP variants:
+#   human: the Hsapi38 tarball, also for its tRNAscan-SE structures); mitochondrial tRNAs: the
+#   Ensembl Mt_tRNA genes (ncRNA FASTA), named (and for human folded) by tRNAscan-SE -M vert;
+#   UCSC RepeatMasker for the assembly of each miRNA GFF; SNVs inside mature miRNAs for the A-to-I
+#   SNP variants:
 #     human     dbSNP 157 COMMON (minor allele >= 1% in a 1000 Genomes population), GRCh38
 #     mouse     dbSNP 150 (GRCm38), for both databases; miRBase matures are placed on GRCm38 by
 #               accession through the miRBase 22.1 GFF (GRCm38), for this lookup only
@@ -189,32 +190,40 @@ done
 py ncrna --ncrna "$src/$ncrna" --cdna "$src/$cdna" --outdir "$work"
 gzip -dc "$src/$genome" > "$work/genome.fa"
 trna_clusters=
+# Mitochondrial tRNAs, all species: the Ensembl Mt_tRNA genes (ncRNA FASTA), whose amino acid,
+# anticodon (names) and, for human, structure come from tRNAscan-SE -M vert.
+py mt-trna --ncrna "$src/$ncrna" --out "$work/mt_trna.fa"
+tRNAscan-SE -M vert -Q -q --brief -f "$work/mt_trna.ss" -o "$work/mt_trna.out" "$work/mt_trna.fa" \
+    > "$work/trnascan.log" 2>&1 || { cat "$work/trnascan.log" >&2; die "tRNAscan-SE failed"; }
+trnascan=$(tRNAscan-SE -h 2>&1 | grep -oE 'tRNAscan-SE [0-9.]+' | head -1 || true)
 if [[ $org == human ]]; then
-    # Nuclear tRNAs from GtRNAdb Hsapi38 (structures from its tRNAscan-SE detailed.ss), the Ensembl
-    # Mt_tRNA genes folded by tRNAscan-SE, 100 nt trailers, and the SourceForge tRF clusters that still
-    # lie at their position (its trna.str only for the anticodon check and the change list).
+    # Nuclear tRNAs from GtRNAdb Hsapi38 (structures from its tRNAscan-SE detailed.ss), 100 nt trailers,
+    # and the SourceForge tRF clusters that still lie at their position (its trna.str only for the
+    # anticodon check and the change list).
     tar -xzf "$old_human" -C "$work" 'human/annotation.Libs/human_trna.str' \
         'human/annotation.Libs/human_tRF_infor.csv' 'human/annotation.Libs/human_tRF_merges.csv'
-    py mt-trna --ncrna "$src/$ncrna" --out "$work/mt_trna.fa"
-    tRNAscan-SE -M vert -Q -q --brief -f "$work/mt_trna.ss" -o "$work/mt_trna.out" "$work/mt_trna.fa" \
-        > "$work/trnascan.log" 2>&1 || { cat "$work/trnascan.log" >&2; die "tRNAscan-SE failed"; }
     py trna-human --gtrnadb "$src/gtrnadb-tRNAs.tar.gz" --genome "$work/genome.fa" --mt-fasta "$work/mt_trna.fa" \
         --mt-ss "$work/mt_trna.ss" --old-annotation "$work/human/annotation.Libs" --outdir "$work" \
         --annotation "$lib/annotation.Libs" --changes "$lib/gcf_trna_changes.tsv"
-    trnascan=$(tRNAscan-SE -h 2>&1 | grep -oE 'tRNAscan-SE [0-9.]+' | head -1 || true)
     trna_note="GtRNAdb $gtrnadb_name mature tRNAs (+CCA; structures from its detailed.ss), Ensembl $ensembl Mt_tRNA genes (+CCA; structures from ${trnascan:-tRNAscan-SE} -M vert), 100 nt trailers"
     count() { awk -F'\t' -v k="$1" -v c="$2" '$1 == k && $3 == c' "$lib/gcf_trna_changes.tsv" | wc -l; }
     trna_clusters="SourceForge tRF clusters at their position in the new sequences: $(( $(count cluster kept) + $(count cluster renamed) )) kept ($(count cluster renamed) on renamed tRNAs), $(count cluster dropped) dropped; merge groups $(wc -l < "$lib/annotation.Libs/human_tRF_merges.csv") (gcf_trna_changes.tsv)"
 else
+    # GtRNAdb nuclear tRNAs (trailers from GtRNAdb's assembly: Ensembl for mouse, UCSC rn7 for rat) and
+    # the Ensembl Mt_tRNA genes (trailers from the Ensembl genome). The Ensembl locus is kept where
+    # tRNAscan-SE's tRNA is up to 2 nt shorter at an end (mouse mt-Th, rat tRNA-Ser(UCN)); no
+    # structures, since miRge3 0.1.4 counts tRFs (--tRNA-frag) for human only.
     prefix=$(head -1 "$src/gtrnadb-mature-tRNAs.fa" | sed -E 's/^>([A-Z][a-z]+_[a-z]+)_tRNA-.*/\1/')
+    mt=(--mt-fasta "$work/mt_trna.fa" --mt-ss "$work/mt_trna.ss" --mt-genome "$work/genome.fa" --mt-slack 2)
     if [[ $trna_genome == ensembl ]]; then
         py trna --mature "$src/gtrnadb-mature-tRNAs.fa" --bed "$src/gtrnadb-tRNAs.bed" --genome "$work/genome.fa" \
-            --outdir "$work" --species-prefix "$prefix" --chrom-prefix ''
+            --outdir "$work" --species-prefix "$prefix" --chrom-prefix '' "${mt[@]}"
     else
         py trna --mature "$src/gtrnadb-mature-tRNAs.fa" --bed "$src/gtrnadb-tRNAs.bed" --genome "$src/rn7.fa.gz" \
-            --outdir "$work" --species-prefix "$prefix"
+            --outdir "$work" --species-prefix "$prefix" "${mt[@]}"
     fi
-    trna_note="GtRNAdb $gtrnadb_name mature tRNAs (+CCA) and 100 nt trailers"
+    shorter=$(awk '{printf "%s%s", (NR > 1 ? "; " : ""), $0}' "$work/mt_trna_shorter_hits.txt")
+    trna_note="GtRNAdb $gtrnadb_name mature tRNAs (+CCA), Ensembl $ensembl Mt_tRNA genes (+CCA; amino acid and anticodon from ${trnascan:-tRNAscan-SE} -M vert; Ensembl locus kept where its tRNA is shorter: ${shorter:-none}), 100 nt trailers"
 fi
 cat > "$work/spike-in.fa" <<'EOF'
 >spikeIn|Cal01
