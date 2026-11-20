@@ -9,7 +9,8 @@ libraries (2020):
   mirna-finish  SNP variants, mirna index FASTA, SNP pseudo FASTA, merges, repeat-element list
   rmsk-bed      UCSC rmsk.txt.gz -> BED with UCSC-style transcript ids (repName, repName_dup1, ...)
   ncrna         Ensembl ncRNA and cDNA FASTA -> snoRNA (identical sequences collapsed), rRNA
-                (rRNA and rRNA_pseudogene), others, mRNA (cDNA without rRNA_pseudogene)
+                (rRNA and rRNA_pseudogene, plus --extra-rrna: RefSeq 18S, 5.8S, 28S), others, mRNA
+                (cDNA without rRNA_pseudogene)
   trna          GtRNAdb mature tRNAs (+CCA) and 100 nt genomic trailers (pre-tRNA)
   mt-trna       Ensembl Mt_tRNA genes from the ncRNA FASTA (input for tRNAscan-SE -M vert)
   trna-human    human tRNA set for --tRNA-frag: GtRNAdb nuclear tRNAs (structures from its
@@ -412,13 +413,38 @@ def cmd_ncrna(args):
         first = headers[0].split(' ', 1)
         ids = '/'.join(h.split()[0] for h in headers)
         sno.append((ids + (' ' + first[1] if len(first) > 1 else ''), seq))
+    n_ensembl, extra = len(rrna), extra_rrna(args.extra_rrna or [])
+    ensembl_seqs = {s for _, s in rrna}
+    rrna += extra
     out = Path(args.outdir)
     write_fasta(out / 'snorna.fa', sno)
     write_fasta(out / 'rrna.fa', rrna)
     write_fasta(out / 'ncrna_others.fa', others)
     write_fasta(out / 'mrna.fa', mrna)
     print(f'ncRNA: {len(sno)} snoRNA ({sum(map(len, snorna.values()))} before collapsing), '
-          f'{len(rrna)} rRNA (with rRNA_pseudogene), {len(others)} others, {len(mrna)} mRNA', file=sys.stderr)
+          f'{n_ensembl} rRNA (with rRNA_pseudogene), {len(others)} others, {len(mrna)} mRNA', file=sys.stderr)
+    if extra:
+        same = [h.split()[0] for h, s in extra if s in ensembl_seqs]
+        print(f'rRNA: + {len(extra)} RefSeq ({", ".join(h.split()[0] for h, _ in extra)}); '
+              f'{len(same)} identical to an Ensembl rRNA {same}', file=sys.stderr)
+
+
+def extra_rrna(paths):
+    """rDNA rRNAs Ensembl doesn't annotate (18S, 5.8S, 28S; gcf-docker#54): one NCBI FASTA record per
+    file, named by its accession.version, as upper-case DNA."""
+    out = []
+    for p in paths:
+        recs = read_fasta(p)
+        if len(recs) != 1:
+            die(f'{p}: expected one rRNA record, found {len(recs)}')
+        header, seq = recs[0]
+        seq = to_dna(seq)
+        if not re.fullmatch(r'[A-Z]{1,6}_?\d+\.\d+', header.split()[0] if header else ''):
+            die(f'{p}: header must start with accession.version, got {header!r}')
+        if not seq or set(seq) - set('ACGT'):
+            die(f'{p}: {header.split()[0]} is empty or has bases other than ACGT')
+        out.append((header, seq))
+    return out
 
 
 def read_genome(path, wanted, rename):
@@ -1009,6 +1035,8 @@ def main(argv=None):
     s.add_argument('--ncrna', required=True)
     s.add_argument('--cdna', required=True)
     s.add_argument('--outdir', required=True)
+    s.add_argument('--extra-rrna', nargs='+', metavar='FASTA',
+                   help='rRNAs to append to the rRNA index, one NCBI record per file (18S, 5.8S, 28S)')
     s.set_defaults(func=cmd_ncrna)
     s = sub.add_parser('trna')
     for a in ('--mature', '--bed', '--genome', '--outdir', '--species-prefix'):

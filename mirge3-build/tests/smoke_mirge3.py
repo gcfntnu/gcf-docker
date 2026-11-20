@@ -11,7 +11,9 @@ human) for miRBase and MirGeneDB, as uid 1000 with a read-only root filesystem, 
   * human (--tRNA-frag): reads equal to a nuclear, a mitochondrial and a trailer (tRF-1) cluster
     are counted under the cluster's merge group in tRF.Counts.csv;
   * mouse, rat: a read inside a mitochondrial tRNA and a 3' read ending in the CCA tail of a tRNA
-    whose GtRNAdb sequence ends in CCA are counted as mature tRNA (gcf-docker#53).
+    whose GtRNAdb sequence ends in CCA are counted as mature tRNA (gcf-docker#53);
+  * reads from the two longest rRNAs (28S, 18S; at least 1,500 nt, else the test stops) are counted
+    as rRNA (gcf-docker#54).
 
 Usage: tests/smoke_mirge3.py --lib DIR (the dir holding <org>/) --org human|mouse|rat --out DIR
        [--image quay.io/biocontainers/mirge3:0.1.4--pyh7cba7a3_0]
@@ -131,6 +133,15 @@ def mt_cca_reads(mature):
     return [(mt[0][0], mt[0][1][10:40], 8), (cca[0][0], cca[0][1][-22:], 7)]
 
 
+def rrna_reads(image, lib, org):
+    """gcf-docker#54: [(rRNA, read, copies)] for a 25 nt read from each of the two longest records of the rRNA
+    index, which must be 18S/28S-sized (Ensembl alone gives human only 5S/5.8S)."""
+    long = sorted((r for r in bowtie_inspect(image, lib, org, 'rrna') if len(r[1]) >= 1500), key=lambda r: -len(r[1]))
+    if len(long) < 2:
+        sys.exit(f'smoke test: {len(long)} rRNAs of 1,500 nt or more (18S, 28S) in the {org} rRNA index')
+    return [(long[0][0].split()[0], long[0][1][600:625], 6), (long[1][0].split()[0], long[1][1][600:625], 5)]
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--lib', required=True)
@@ -151,13 +162,16 @@ def main():
     mt_cca = mt_cca_reads(mature) if a.org != 'human' else []
     for c, s, n in mt_cca:
         print(f'tRNA read {s} ({c}) x {n}')
+    rrna = rrna_reads(a.image, lib, a.org)
+    for c, s, n in rrna:
+        print(f'rRNA read {s} ({c}) x {n}')
     n_mature = 12 + sum(n for g, c, s, n in trf if not c.startswith('pre_')) + sum(n for c, s, n in mt_cca)
     n_primary = sum(n for g, c, s, n in trf if c.startswith('pre_'))
     failures = []
     for db in ('miRBase', 'MirGeneDB'):
         reads, expected, snp, ident = pick(lib, a.org, db)
         extra = ([spike] * 15 + [trna] * 12 + [s for g, c, s, n in trf for _ in range(n)]
-                 + [s for c, s, n in mt_cca for _ in range(n)])
+                 + [s for c, s, n in mt_cca for _ in range(n)] + [s for c, s, n in rrna for _ in range(n)])
         fq = out / f'smoke_{db}.fastq'
         write_fastq(fq, reads, extra)
         run = out / f'run_{db}'
@@ -182,7 +196,8 @@ def main():
             if got != n:
                 failures.append(f'{db}: {name} expected {n}, got {got}')
         report = list(csv.DictReader(open(result / 'annotation.report.csv')))[0]
-        checks = [('Spike-in', 15), ('mature tRNA Reads', n_mature)] + ([('primary tRNA Reads', n_primary)] if trf else [])
+        checks = ([('Spike-in', 15), ('mature tRNA Reads', n_mature), ('rRNA Reads', sum(n for c, s, n in rrna))]
+                  + ([('primary tRNA Reads', n_primary)] if trf else []))
         for col, n in checks:
             key = next((k for k in report if k.lower().startswith(col.lower())), None)
             got = float(report[key]) if key else None

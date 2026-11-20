@@ -14,7 +14,8 @@ FROM mambaorg/micromamba:2.0.5
 # 1.1.0: human tRNA set from GtRNAdb Hsapi38 and Ensembl Mt_tRNA (tRNAscan-SE), tRF clusters carried
 # over (gcf-docker#52); CCA always added to mature tRNAs (gcf-docker#53).
 # 1.2.0: mouse and rat get the Ensembl Mt_tRNA genes too, named by tRNAscan-SE (gcf-docker#53).
-ENV MIRGE3_BUILD=1.2.0
+# 1.3.0: RefSeq mature 18S, 5.8S and 28S rRNA in the human and mouse rRNA index (gcf-docker#54).
+ENV MIRGE3_BUILD=1.3.0
 
 COPY --chown=$MAMBA_USER:$MAMBA_USER env.yml /tmp/env.yml
 RUN micromamba install -y -n base -f /tmp/env.yml && \
