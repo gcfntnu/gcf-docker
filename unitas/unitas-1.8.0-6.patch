@@ -1,0 +1,28 @@
+--- a/unitas_1.8.0.pl
++++ b/unitas_1.8.0.pl
+@@ -40,7 +40,7 @@
+ 	}
+ 
+ $|=1;
+-$unitas_version="1.8.0-1";
++$unitas_version="1.8.0-6";
+ $last_modified="21. December 2022"; # bug fix in finding best matches
+ $t0=time;
+ 
+@@ -10591,6 +10591,7 @@
+ 					{
+ 					$symbol=$_;
+ 					$symbol=~s/ .*$//;
++					$symbol=~s/^>//; # gcf 1.8.0-6: the transcript ID, without the FASTA '>' (gcfntnu/gcf-docker#56)
+ 					}
+ 
+ 				# extract gene ID
+@@ -10624,7 +10625,7 @@
+ 				else
+ 					{
+ 					$red_ID=$avoid_redundant_names{"$biotype|${symbol}$anticodon-$geneID"};
+-					$ncRNA_key="$biotype|${symbol}${anticodon}-$geneID_($red_ID)";
++					$ncRNA_key="$biotype|${symbol}${anticodon}-${geneID}_($red_ID)"; # gcf 1.8.0-6: was $geneID_, an empty variable, so names lost the gene ID and keys of genes sharing a symbol merged (#56)
+ 					}
+ 				}
+ 			elsif($biotype!~/miRNA/)

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# fake curl: logs the URL, writes a tiny file to -o, fails (like curl -f) for release 99.9;
+# <url>.md5 is the md5 of <url>'s content (wrong when FAKE_BAD_MD5 is set); FAKE_NCRNA, a FASTA
+# file, is served gzipped as the Ensembl ncRNA download. Used by tests/test_*refdump*.sh.
+out= url=
+while (( $# )); do case $1 in -o) out=$2; shift 2 ;; --retry) shift 2 ;; -*) shift ;; *) url=$1; shift ;; esac; done
+echo "$url" >> "$FAKE_CURL_LOG"
+[[ $url == */download_version_files/99.9/* ]] && exit 22
+emit() { if [[ -n $out ]]; then cat > "$out"; else cat; fi; }
+content() {
+    case $1 in
+        *Ref_tax_silva.fasta.gz) printf '>X1.1.8 Eukaryota;Homo sapiens (human)\nACGU\nACGU\n>Y1.1.4 Bacteria;Escherichia coli\nUUUU\n' | gzip -n ;;
+        *taxmap_embl_*_ref_132.txt.gz)
+            printf 'primaryAccession\tstart\tstop\tpath\torganism_name\ttaxid\nX1\t1\t8\tEukaryota;\tHomo sapiens (human)\t 9606\nY1\t1\t4\tBacteria;\tEscherichia coli\t 562\n' | gzip -n ;;
+        *.ncrna.fa.gz) if [[ -n ${FAKE_NCRNA:-} ]]; then gzip -nc "$FAKE_NCRNA"; else printf '>ENST1 ncrna\nACGT\n' | gzip -n; fi ;;
+        *.fa.gz) printf '>ENST1 ncrna\nACGT\n' | gzip -n ;;
+        */mature.fa) printf '>hsa-let-7a-5p MIMAT0000062 Homo sapiens let-7a-5p\nUGAGGUAGUAGGUUGUAUAGUU\n>mmu-let-7a-5p MIMAT0000521 Mus musculus let-7a-5p\nUGAGGUAGUAGGUUGUAUAGUU\n' ;;
+        */hairpin.fa) printf '>hsa-let-7a-1 MI0000060 Homo sapiens let-7a-1 stem-loop\nUGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA\n>mmu-let-7a-1 MI0000556 Mus musculus let-7a-1 stem-loop\nUUCACUGUGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUAAGGUGAU\n' ;;
+        *tRNAs.fa) printf '>Homo_sapiens_tRNA-Ala-AGC-1-1\nGGGGGTGTAGCTCAG\n' ;;
+        *piRNAclusters.fasta) printf '>Hsap_0001 4:10087069..10432971\nTTAGGGTTCAG\n' ;;
+        *) printf '<html>Version 22.1</html>\n' ;;
+    esac
+}
+if [[ $url == *.md5 ]]; then
+    if [[ -n ${FAKE_BAD_MD5:-} ]]; then echo "00000000000000000000000000000000  x" | emit
+    else printf '%s  %s\n' "$(content "${url%.md5}" | md5sum | cut -d' ' -f1)" "$(basename "${url%.md5}")" | emit; fi
+else
+    content "$url" | emit
+fi

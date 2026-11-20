@@ -21,6 +21,11 @@
 # Before that, unitas_normalize_hairpin.awk strips a record's own species prefix from the miRBase
 # hairpin names (hsa-miR-13167 -> miR-13167); the renamed names are listed in
 # gcf_hairpin_renamed.tsv in the dump.
+# The image's unitas.pl (unitas-1.8.0-6.patch) names Ensembl ncRNA records without a gene symbol by
+# the transcript ID (lncRNA|ENST...-ENSG..., formerly with the FASTA '>') and a gene's further
+# transcripts <symbol>-<gene>_(n) (formerly <symbol>-(n), which merged transcripts of genes sharing a
+# symbol); the dump is rejected if either old form appears (gcfntnu/gcf-docker#56). The static
+# tRF-1 and tRNA-leader names lose any '>' after their first character (rat: tRF-1_>#297).
 #
 # With --mirna-db mirgenedb, MirGeneDB takes miRBase's place: unitas_mirgenedb2mirbase.awk writes
 # the MirGeneDB FASTA of all species in miRBase's header layout (mature and star sequences as the
@@ -58,7 +63,7 @@ while (( $# )); do
         --mirgenedb-release) mirgenedb_release=$2; shift 2 ;;
         --workdir) workdir=$2; shift 2 ;;
         --keep-raw) keep_raw=1; shift ;;
-        -h|--help) sed -n '2,46p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,51p' "$0"; exit 0 ;;
         *) echo "unitas_build_refdump: unknown argument $1" >&2; exit 2 ;;
     esac
 done
@@ -220,15 +225,24 @@ for unit in SSU LSU; do
     rm -f "$fasta"
 done
 
-# Static data from the existing dump, in the layout of the old server
-cp "$static/tRF-1.fas" "$U/tRF-1/$species.tRF-1.fas"
-cp "$static/tRNA_leader.fas" "$U/tRNA_leader/$species.tRNA_leader.fas"
+# Static data from the existing dump, in the layout of the old server. The rat files name most
+# records with a '>' inside (tRNA|tRF-1_>#297); every '>' after the first character of a header is
+# removed, as for the Ensembl names (gcfntnu/gcf-docker#56), and counted in gcf_sources.tsv.
+strip_gt() { awk '/^>/ { h = substr($0, 2); gsub(/>/, "", h); $0 = ">" h } { print }' "$1"; }
+strip_gt "$static/tRF-1.fas" > "$U/tRF-1/$species.tRF-1.fas"
+strip_gt "$static/tRNA_leader.fas" > "$U/tRNA_leader/$species.tRNA_leader.fas"
 printf '%s' "$trf1_date" > "$U/tRF-1/release"
 printf '%s' "$leader_date" > "$U/tRNA_leader/release"
 printf '%s' "$silva_release" > "$U/SILVA_rRNA/release"
 printf 'NA' > "$U/SeqMap/release"
 for f in tRF-1.fas tRNA_leader.fas; do
     printf '%s\t%s\t%s\t%s\n' "$f" "static:$static/$f" "$(sha256sum "$static/$f" | cut -d' ' -f1)" "NA" >> "$sources"
+    n=$(grep -c '^>.\+>' "$static/$f" || true)
+    if (( n > 0 )); then
+        out=$U/${f%.fas}/$species.$f
+        printf '%s\t%s\t%s\t%s\n' "$f" "gcf:removed '>' inside $n names" "$(sha256sum "$out" | cut -d' ' -f1)" "NA" >> "$sources"
+        echo "gcf: removed '>' inside $n $f names"
+    fi
 done
 
 # URL tables (Perl, evaluated by unitas as on the old server)
@@ -263,6 +277,11 @@ done
 if grep -qi "^>$code-" "$dump/miRBase_hairpin_$org.fas"; then
     die "miRBase_hairpin_$org.fas has $code- names: $(grep -i "^>$code-" "$dump/miRBase_hairpin_$org.fas" | head -3 | tr '\n' ' ')"
 fi
+# Names (gcfntnu/gcf-docker#56): no '>' inside a header, and no <symbol>-(n) name without the gene ID.
+bad=$(grep -h '^>.*>' "$dump/ncRNA.fas" "$dump/cDNA.fas" | head -3 | tr '\n' ' ' || true)
+[[ -z $bad ]] || die "headers with '>' after the first character (unitas.pl without unitas-1.8.0-6.patch?): $bad"
+bad=$(grep -E -- '-\([0-9]+\)$' "$dump/ncRNA.fas" | head -3 | tr '\n' ' ' || true)
+[[ -z $bad ]] || die "ncRNA.fas names without the gene ID, <symbol>-(n) (unitas.pl without unitas-1.8.0-6.patch?): $bad"
 if (( ! keep_raw )); then
     rm -f "$dump/ensembl_ncRNA" "$dump/ensembl_cDNA" "$dump/miRBase_hairpin"
 fi
