@@ -3,7 +3,7 @@
 # test data, so test/expected_output.md5 only matches with this build.
 FROM quay.io/biocontainers/segemehl:0.3.4--hf7d323f_8@sha256:987c37d4bb73c71bf68cc44d1d091b53f7bdca298489ff975530eebac49503d3 AS segemehl
 
-FROM mambaorg/micromamba:2.0.5
+FROM mambaorg/micromamba:2.0.5 AS recipe
 
 # mirflowz v0.10.0 (https://github.com/zavolanlab/mirflowz, MIT) with every tool its rules call,
 # for running it as one nested Snakemake call inside a gcf-workflows rule (no inner containers or
@@ -17,6 +17,12 @@ FROM mambaorg/micromamba:2.0.5
 # gffread is linked onto PATH.
 #
 # Image tag: <mirflowz version>[-<n>], e.g. 0.10.0; never overwrite a published tag.
+#
+# This stage (`recipe`) is the full build of 0.10.0. The default build is the last stage: the
+# published 0.10.0 image, by digest, plus the parallel oligomap (0.10.0-1). A fresh build of this
+# stage solves the conda environment again (about 30 unpinned dependencies come out at other
+# builds or versions), so the -<n> revisions keep 0.10.0's tools by building on its image. For a new
+# mirflowz version, build this stage (--target recipe) and base the last stage on it.
 ENV MIRFLOWZ_VERSION=0.10.0
 ENV MIRFLOWZ_BUILD=0.10.0
 ARG MIRFLOWZ_SHA256=a67187b9b926817421e9016086d683b4c7ae632c0c7a7aa7023c5c982fc81080
@@ -50,3 +56,26 @@ RUN for t in snakemake segemehl.x oligomap cutadapt fastx_collapser fastq_to_fas
     snakemake -s /opt/mirflowz/workflow/Snakefile --configfile config.yaml \
         --config scripts_dir=/opt/mirflowz/scripts/ --cores 1 --no-hooks -n --quiet && \
     cd / && rm -rf /tmp/m
+
+# 0.10.0-1: the published 0.10.0, unchanged, plus oligomap in parallel. oligomap is single-threaded
+# and each run scans its whole target (on a human genome most of the time). The wrapper
+# mirflowz/oligomap takes the place of /opt/conda/bin/oligomap, so it is found whatever the PATH
+# order (micromamba's entrypoint and build shell put /opt/conda/bin first), and calls the real one,
+# renamed /opt/conda/bin/oligomap.real. It stays in /opt/conda/bin: it finds conda's libstdc++
+# through $ORIGIN/../lib, and moved elsewhere it loads the system's and crashes.
+# With OLIGOMAP_JOBS=N the wrapper cuts the target into at most N parts of consecutive sequences,
+# maps all queries to every part in parallel and joins the results: the same bytes as one run (see
+# the wrapper's header). OLIGOMAP_SPLIT_DIR keeps the parts for reuse. Default OLIGOMAP_JOBS=1: the
+# real oligomap, as in 0.10.0. Tested by tests/test_oligomap_split.sh.
+FROM gcfntnu/mirflowz:0.10.0@sha256:5841b820d2ae0f008ca6e0b668069b68eacad32756040c84d9b379c435085e45
+USER root
+RUN mv /opt/conda/bin/oligomap /opt/conda/bin/oligomap.real
+COPY --chmod=755 oligomap /opt/conda/bin/oligomap
+USER $MAMBA_USER
+ENV MIRFLOWZ_BUILD=0.10.0-1
+RUN [ "$(command -v oligomap)" = /opt/conda/bin/oligomap ] && head -c 2 /opt/conda/bin/oligomap | grep -q '#!' && \
+    bash -n /opt/conda/bin/oligomap && command -v flock > /dev/null && cd /tmp && \
+    printf '>a\nACGTTGAGGTAGTAGGTTGTATAGTTACGT\n>b\nTTTGAGGTAGTAGGTTGTATAGTTTT\n' > t.fa && \
+    printf '>1-1\nTGAGGTAGTAGGTTGTATAGTT\n' > q.fa && oligomap.real t.fa q.fa -r r1 > o1 && \
+    OLIGOMAP_JOBS=2 oligomap t.fa q.fa -r r2 > o2 && [ "$(grep -c ' nc) ' o1)" -eq 2 ] && \
+    cmp o1 o2 && cmp r1 r2 && rm t.fa q.fa r1 r2 o1 o2

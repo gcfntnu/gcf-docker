@@ -1,0 +1,154 @@
+#!/bin/bash
+# oligomap with its target split into parts that run in parallel, for mirflowz's two oligomap
+# rules (oligomap TARGET QUERIES [-s] -r REPORT > MAPPINGS).
+#
+# oligomap is single-threaded, and every process scans its whole target: on the human genome that
+# scan is most of the time, whatever the number of queries. With OLIGOMAP_JOBS=N (default 1: the
+# real oligomap, unchanged), the target FASTA is cut into at most N parts of consecutive sequences
+# with about equal bases, and the real oligomap runs on each part with all queries and the same
+# options, in parallel. The parts' alignments are joined in part order and their -r reports summed
+# per query (exact and one-error hits, query order kept). oligomap reports every hit with at most
+# one error, caps hits only with -m (refused here: it would cap per part) and writes them in target
+# order, so the result is byte-identical to one oligomap run on the whole target.
+#
+# OLIGOMAP_SPLIT_DIR: keep each target's parts there, keyed by its real path, size, mtime and N,
+# and reuse them; concurrent calls wait for one split (flock). Unset: parts in a temporary folder.
+# `oligomap --split-only TARGET` only makes the parts (needs OLIGOMAP_SPLIT_DIR).
+set -euo pipefail
+shopt -s inherit_errexit  # a failed split inside $(...) stops the wrapper too
+REAL=/opt/conda/bin/oligomap.real  # the real oligomap, renamed by the Dockerfile
+JOBS=${OLIGOMAP_JOBS:-1}
+[[ $JOBS =~ ^[1-9][0-9]*$ ]] || { echo "oligomap wrapper: OLIGOMAP_JOBS must be a positive integer, got '$JOBS'" >&2; exit 2; }
+
+split_into() {  # target dir: write the parts NNNN.fa (or the marker `whole` for one part) and parts.tsv
+    python - "$1" "$JOBS" "$2" <<'PY'
+import sys
+target, jobs, out = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+sizes = []
+with open(target) as fh:
+    for line in fh:
+        if line.startswith('>'):
+            sizes.append(0)
+        elif sizes:
+            sizes[-1] += len(line.rstrip('\n'))
+jobs = max(1, min(jobs, len(sizes)))
+
+
+def parts_needed(bound):
+    parts, used = 1, 0
+    for size in sizes:
+        if used and used + size > bound:
+            parts, used = parts + 1, 0
+        used += size
+    return parts
+
+
+# The smallest bound on a part's bases that fits the sequences, in order, into at most `jobs` parts.
+low, high = max(sizes, default=0), sum(sizes)
+while low < high:
+    mid = (low + high) // 2
+    if parts_needed(mid) <= jobs:
+        high = mid
+    else:
+        low = mid + 1
+part_of, part, used = [], 0, 0
+for size in sizes:
+    if used and used + size > low:
+        part, used = part + 1, 0
+    used += size
+    part_of.append(part)
+count = (part_of[-1] + 1) if part_of else 1
+if count == 1:
+    open(out + '/whole', 'w').close()
+else:
+    files = [open('{}/{:04d}.fa'.format(out, p), 'w') for p in range(count)]
+    record = -1
+    with open(target) as fh:
+        for line in fh:
+            if line.startswith('>'):
+                record += 1
+            files[part_of[record]].write(line)
+    for f in files:
+        f.close()
+with open(out + '/parts.tsv', 'w') as fh:
+    fh.write('part\tsequences\tbases\n')
+    for p in range(count):
+        members = [s for s, q in zip(sizes, part_of) if q == p]
+        fh.write('{:04d}\t{}\t{}\n'.format(p, len(members), sum(members)))
+PY
+}
+
+parts_of() {  # target: print the folder holding its parts
+    local target=$1 key dir tmp
+    if [[ -z ${OLIGOMAP_SPLIT_DIR:-} ]]; then
+        mkdir "$WORK/parts" && split_into "$target" "$WORK/parts" && echo "$WORK/parts"
+        return
+    fi
+    key=$(printf '%s %s %s' "$(readlink -f "$target")" "$(stat -L -c '%s %Y' "$target")" "$JOBS" | md5sum | cut -c1-16)
+    dir=$OLIGOMAP_SPLIT_DIR/$key
+    mkdir -p "$OLIGOMAP_SPLIT_DIR"
+    (
+        flock 9
+        if [[ ! -f $dir/complete ]]; then
+            tmp=$(mktemp -d "$OLIGOMAP_SPLIT_DIR/.split.XXXXXX")
+            split_into "$target" "$tmp"
+            readlink -f "$target" > "$tmp/target"
+            touch "$tmp/complete"
+            mv -T "$tmp" "$dir"
+        fi
+    ) 9> "$OLIGOMAP_SPLIT_DIR/.$key.lock"
+    echo "$dir"
+}
+
+if [[ ${1:-} == --split-only ]]; then
+    [[ -n ${OLIGOMAP_SPLIT_DIR:-} && $# -eq 2 ]] || { echo "usage: OLIGOMAP_SPLIT_DIR=DIR oligomap --split-only TARGET" >&2; exit 2; }
+    WORK=; parts_of "$2"; exit 0
+fi
+[[ $# -ge 2 ]] || exec "$REAL" "$@"
+if [[ $JOBS -eq 1 ]]; then exec "$REAL" "$@"; fi
+
+target=$1; queries=$2; shift 2
+opts=(); report=
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -r) report=$2; shift 2 ;;
+        -m) echo "oligomap wrapper: -m caps hits per part, not per query; not supported with OLIGOMAP_JOBS > 1" >&2; exit 2 ;;
+        *) opts+=("$1"); shift ;;
+    esac
+done
+
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/oligomap.XXXXXX")
+trap 'rm -rf "$WORK"' EXIT
+parts=$(parts_of "$target")
+if [[ -f $parts/whole ]]; then  # one sequence, or one part: the real oligomap on the whole target
+    "$REAL" "$target" "$queries" ${opts[@]+"${opts[@]}"} ${report:+-r "$report"}
+    exit
+fi
+pids=()
+for part in "$parts"/*.fa; do
+    base=$WORK/$(basename "${part%.fa}")
+    "$REAL" "$part" "$queries" ${opts[@]+"${opts[@]}"} -r "$base.report" > "$base.out" 2> "$base.err" &
+    pids+=($!)
+done
+rc=0
+for pid in "${pids[@]}"; do wait "$pid" || rc=$?; done
+cat "$WORK"/*.err >&2
+[[ $rc -eq 0 ]] || exit "$rc"
+# oligomap writes its report at the end; it returns 0 on some errors (e.g. a target line over 1000
+# characters) but then writes none.
+for part in "$parts"/*.fa; do
+    [[ -f $WORK/$(basename "${part%.fa}").report ]] || { echo "oligomap wrapper: part $(basename "$part") failed (no report)" >&2; exit 1; }
+done
+cat "$WORK"/*.out
+if [[ -n $report ]]; then
+    awk -F'\t' -v OFS='\t' '
+        FNR == 1 { file++ }
+        file == 1 { order[FNR] = $1; n = FNR }
+        file > 1 && order[FNR] != $1 { print "oligomap wrapper: part reports list different queries" > "/dev/stderr"; bad = 1; exit 1 }
+        { exact[FNR] += $2; one[FNR] += $3; lines[file] = FNR }
+        END {
+            if (bad) exit 1
+            for (f = 1; f <= file; f++) if (lines[f] != n) { print "oligomap wrapper: a part report is incomplete" > "/dev/stderr"; exit 1 }
+            for (i = 1; i <= n; i++) print order[i], exact[i], one[i]
+        }' "$WORK"/*.report > "$report"
+fi
