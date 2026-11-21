@@ -9,12 +9,16 @@
 # segemehl build run directly in the image reproduces upstream's checksum; the counts do not
 # change. These 7 files are listed below; any other mismatch, or a mismatch of the final tables,
 # fails the test.
-# Usage: tests/smoke_mirflowz.sh [image] [workdir]
+#
+# OLIGOMAP_JOBS from the environment is passed on (the parallel oligomap, from 0.10.0-1; default 1):
+# with it above 1, mirflowz's transcriptome target (many sequences) is mapped in parts, and the same
+# checksums must match. Its genome has one sequence, so that target is mapped whole either way.
+# Usage: [OLIGOMAP_JOBS=N] tests/smoke_mirflowz.sh [image] [workdir]
 set -euo pipefail
-image=${1:-gcfntnu/mirflowz:0.10.0}
+image=${1:-gcfntnu/mirflowz:0.10.0-1}
 work=${2:-$(mktemp -d)}
 mkdir -p "$work"
-docker run --rm --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp -e HOME=/tmp -e XDG_CACHE_HOME=/tmp/cache \
+docker run --rm --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp -e HOME=/tmp -e XDG_CACHE_HOME=/tmp/cache -e OLIGOMAP_JOBS="${OLIGOMAP_JOBS:-1}" \
     -v "$work:/work" -w /work "$image" bash -c '
     set -euo pipefail
     rm -rf mirflowz && cp -r "$MIRFLOWZ_DIR" mirflowz && cd mirflowz/test
