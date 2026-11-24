@@ -45,12 +45,14 @@ grep -qx 'ATGGATGATGATATCGCCGCGCTCG' "$tmp/cDNA.fas" || fail "an unrelated cDNA 
 [[ $(grep -c '^>' "$tmp/ncRNA.fas") == 6 && $(grep -c '^>' "$tmp/cDNA.fas") == 2 ]] || fail "record counts changed"
 
 printf '>NR_046235.3 Homo sapiens RNA, 45S pre-ribosomal N5\nTACCTGGTTGATCCTGCCAG\ntcgtacgacucttagcgg\n' > "$tmp/45s.fa"
-out=$(perl "$extras" add45s "$tmp/ncRNA.fas" "$tmp/45s.fa" 45S_pre-rRNA-NR_046235.3) || fail "add45s failed"
+out=$(perl "$extras" add45s "$tmp/ncRNA.fas" "$tmp/45s.fa" 45S_pre-rRNA-NR_046235.3 NR_046235.3) || fail "add45s failed"
 [[ $out == "added rRNA|45S_pre-rRNA-NR_046235.3 (38 nt) to $tmp/ncRNA.fas" ]] || fail "unexpected add45s output: $out"
 tail -2 "$tmp/ncRNA.fas" | diff -u - <(printf '>rRNA|45S_pre-rRNA-NR_046235.3\nTACCTGGTTGATCCTGCCAGTCGTACGACTCTTAGCGG\n') \
     || fail "the 45S record should be one line, upper case, U as T"
-perl "$extras" add45s "$tmp/ncRNA.fas" "$tmp/45s.fa" 45S_pre-rRNA-NR_046235.3 2> "$tmp/again.err" && fail "adding the 45S twice should fail"
+perl "$extras" add45s "$tmp/ncRNA.fas" "$tmp/45s.fa" 45S_pre-rRNA-NR_046235.3 NR_046235.3 2> "$tmp/again.err" && fail "adding the 45S twice should fail"
 grep -q 'already has' "$tmp/again.err" || fail "unexpected error: $(cat "$tmp/again.err")"
 printf '>a\nACGT\n>b\nACGT\n' > "$tmp/two.fa"
-perl "$extras" add45s "$tmp/ncRNA.fas" "$tmp/two.fa" X 2> /dev/null && fail "a FASTA with two records should fail"
+perl "$extras" add45s "$tmp/ncRNA.fas" "$tmp/two.fa" X a 2> /dev/null && fail "a FASTA with two records should fail"
+perl "$extras" add45s "$tmp/ncRNA.fas" "$tmp/45s.fa" 45S_pre-rRNA-NR_046235.2 NR_046235.2 2> "$tmp/wrong.err" && fail "another accession version should fail"
+grep -q "is not NR_046235.2" "$tmp/wrong.err" || fail "unexpected error: $(cat "$tmp/wrong.err")"
 echo "test_refdump_extras.sh: ok"

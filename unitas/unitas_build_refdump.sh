@@ -70,7 +70,7 @@ while (( $# )); do
         --mirgenedb-release) mirgenedb_release=$2; shift 2 ;;
         --workdir) workdir=$2; shift 2 ;;
         --keep-raw) keep_raw=1; shift ;;
-        -h|--help) sed -n '2,51p' "$0"; exit 0 ;;
+        -h|--help) awk 'NR > 1 && !/^#/ { exit } NR > 1 { print }' "$0"; exit 0 ;;   # the header comment
         *) echo "unitas_build_refdump: unknown argument $1" >&2; exit 2 ;;
     esac
 done
@@ -79,6 +79,8 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 normalize_awk=$here/unitas_normalize_hairpin.awk
 silva_awk=$here/unitas_silva_species.awk
 [[ -r $silva_awk ]] || die "missing $silva_awk"
+extras=$here/unitas_refdump_extras.pl   # beside the builder, as the awk helpers
+[[ -r $extras ]] || die "missing $extras"
 mirgenedb_awk=$here/unitas_mirgenedb2mirbase.awk
 mirgenedb_species=$here/mirgenedb_species.tsv
 case $mirna_db in
@@ -294,10 +296,10 @@ bad=$(grep -E -- '-\([0-9]+\)$' "$dump/ncRNA.fas" | head -3 | tr '\n' ' ' || tru
 [[ -z $bad ]] || die "ncRNA.fas names without the gene ID, <symbol>-(n) (unitas.pl without unitas-1.8.0-6.patch?): $bad"
 # gcfntnu/gcf-docker#61 and #62: the 45S pre-rRNA in ncRNA.fas, and snoRNA/scaRNA copies masked by N in other ncRNA
 # and cDNA records (host-gene transcripts), since UNITAS divides a read equally over every matching record.
-extras=$(command -v unitas_refdump_extras.pl || echo "$(dirname "${BASH_SOURCE[0]}")/unitas_refdump_extras.pl")
-perl "$extras" add45s "$dump/ncRNA.fas" "$src/$pre_rrna.fa" "45S_pre-rRNA-$pre_rrna" | tee -a "$log" \
-    || die "adding the 45S pre-rRNA failed"
+# Masking first, so the 45S record is never masked.
 perl "$extras" mask "$dump/ncRNA.fas" "$dump/cDNA.fas" | tee -a "$log" || die "masking snoRNA copies failed"
+perl "$extras" add45s "$dump/ncRNA.fas" "$src/$pre_rrna.fa" "45S_pre-rRNA-$pre_rrna" "$pre_rrna" | tee -a "$log" \
+    || die "adding the 45S pre-rRNA failed"
 if (( ! keep_raw )); then
     rm -f "$dump/ensembl_ncRNA" "$dump/ensembl_cDNA" "$dump/miRBase_hairpin"
 fi

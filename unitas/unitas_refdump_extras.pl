@@ -1,11 +1,12 @@
 #!/usr/bin/env perl
 # Post-processing of a UNITAS reference dump (unitas_build_refdump.sh), on its single-line FASTA files.
 #
-#   unitas_refdump_extras.pl add45s NCRNA_FAS PRE_RRNA_FASTA NAME
-#       Append the 45S pre-rRNA as ">rRNA|NAME" to ncRNA.fas (gcfntnu/gcf-docker#61). The Ensembl and SILVA
-#       rRNAs end at the mature boundaries, so reads from the 5' end of the 5.8S long form, from 28S 5'-end
-#       variants and from the transcribed spacers had no reference. A read of mature rRNA now also hits the
-#       45S, still rRNA, so UNITAS's equal split over the hits does not change its class.
+#   unitas_refdump_extras.pl add45s NCRNA_FAS PRE_RRNA_FASTA NAME ACCESSION
+#       Append the 45S pre-rRNA as ">rRNA|NAME" to ncRNA.fas (gcfntnu/gcf-docker#61); the FASTA's header must name
+#       ACCESSION (the pinned RefSeq version). The Ensembl and SILVA rRNAs end at the mature boundaries, so reads from
+#       the 5' end of the 5.8S long form, from 28S 5'-end variants and from the transcribed spacers had no reference.
+#       A read of mature rRNA now also hits the 45S: one that only hit rRNA stays rRNA, and one that also hit another
+#       class moves a little towards rRNA under UNITAS's equal split over the matching records.
 #
 #   unitas_refdump_extras.pl mask NCRNA_FAS CDNA_FAS
 #       Replace every exact copy of a snoRNA or scaRNA record (at least MIN_SNORNA nt) inside another ncRNA.fas
@@ -35,26 +36,28 @@ sub read_fasta {  # [[header, sequence], ...] of a FASTA file (sequences may spa
 sub write_fasta {  # rewrite a file atomically, one line per sequence
     my ($path, $records) = @_;
     open(my $fh, '>', "$path.part") or die "unitas_refdump_extras.pl: cannot write $path.part: $!\n";
-    print $fh "$_->[0]\n$_->[1]\n" for @$records;
+    for (@$records) { print $fh "$_->[0]\n$_->[1]\n" or die "unitas_refdump_extras.pl: cannot write $path.part: $!\n"; }
     close $fh or die "unitas_refdump_extras.pl: cannot write $path.part: $!\n";
     rename("$path.part", $path) or die "unitas_refdump_extras.pl: cannot replace $path: $!\n";
 }
 
 my $command = shift @ARGV // '';
 if ($command eq 'add45s') {
-    @ARGV == 3 or die "usage: unitas_refdump_extras.pl add45s NCRNA_FAS PRE_RRNA_FASTA NAME\n";
-    my ($ncrna, $fasta, $name) = @ARGV;
+    @ARGV == 4 or die "usage: unitas_refdump_extras.pl add45s NCRNA_FAS PRE_RRNA_FASTA NAME ACCESSION\n";
+    my ($ncrna, $fasta, $name, $accession) = @ARGV;
     my $records = read_fasta($fasta);
     @$records == 1 or die "unitas_refdump_extras.pl: $fasta must hold one record, has " . scalar(@$records) . "\n";
+    $records->[0][0] =~ /^>\Q$accession\E(\s|$)/
+        or die "unitas_refdump_extras.pl: $fasta is not $accession: $records->[0][0]\n";
     (my $seq = uc $records->[0][1]) =~ tr/U/T/;
     $seq =~ /^[ACGTN]+$/ or die "unitas_refdump_extras.pl: $fasta has letters other than ACGTN\n";
     $name =~ /^[^|>\s]+$/ or die "unitas_refdump_extras.pl: bad record name '$name'\n";
-    for my $record (@{ read_fasta($ncrna) }) {
+    my $dump = read_fasta($ncrna);
+    for my $record (@$dump) {
         die "unitas_refdump_extras.pl: $ncrna already has >rRNA|$name\n" if $record->[0] eq ">rRNA|$name";
     }
-    open(my $fh, '>>', $ncrna) or die "unitas_refdump_extras.pl: cannot append to $ncrna: $!\n";
-    print $fh ">rRNA|$name\n$seq\n";
-    close $fh;
+    push @$dump, [">rRNA|$name", $seq];
+    write_fasta($ncrna, $dump);  # staged in a .part file, checked, then renamed
     printf "added rRNA|%s (%d nt) to %s\n", $name, length $seq, $ncrna;
 }
 elsif ($command eq 'mask') {
@@ -103,5 +106,5 @@ elsif ($command eq 'mask') {
         scalar(keys %snorna), @in_ncrna, @in_cdna;
 }
 else {
-    die "usage: unitas_refdump_extras.pl add45s NCRNA_FAS PRE_RRNA_FASTA NAME | mask NCRNA_FAS CDNA_FAS\n";
+    die "usage: unitas_refdump_extras.pl add45s NCRNA_FAS PRE_RRNA_FASTA NAME ACCESSION | mask NCRNA_FAS CDNA_FAS\n";
 }

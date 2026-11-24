@@ -1,6 +1,6 @@
 FROM gcfntnu/build-base:22.04
 
-# unitas 1.8.0 with GCF fixes (image tag 1.8.0-7).
+# unitas 1.8.0 with GCF fixes (image tag 1.8.0-8).
 #   1.8.0-1: offline build and workflow fixes, see unitas-1.8.0-1.patch.
 #   1.8.0-2: unitas_build_refdump.sh strips own species prefixes from miRBase hairpin names
 #            (unitas_normalize_hairpin.awk, gcfntnu/gcf-docker#8). unitas.pl is unchanged.
@@ -21,6 +21,9 @@ FROM gcfntnu/build-base:22.04
 #   1.8.0-7: unitas_build_refdump.sh adds the species' 45S pre-rRNA (RefSeq) to ncRNA.fas (gcfntnu/gcf-docker#61)
 #            and masks snoRNA/scaRNA copies inside host-gene transcripts in ncRNA.fas and cDNA.fas
 #            (unitas_refdump_extras.pl, gcfntnu/gcf-docker#62). unitas.pl is unchanged.
+#   1.8.0-8: review fixes to 1.8.0-7: the 45S download must name the pinned accession, the 45S is added after masking
+#            and written through a checked temporary file, the helper is taken from beside the builder, --help prints
+#            the whole header. Dumps built by 1.8.0-7 are the same (no 45S record held a masked base).
 #
 # The upstream host (www.smallrnagroup.uni-mainz.de) is gone, so the script and SeqMap are
 # supplied locally in files/ (git-ignored; local builds only):
@@ -35,7 +38,7 @@ FROM gcfntnu/build-base:22.04
 # piRNAclusterDB and SILVA.
 
 ENV UNITAS_VERSION=1.8.0
-ENV UNITAS_BUILD=1.8.0-7
+ENV UNITAS_BUILD=1.8.0-8
 ARG UNITAS_PATCH=unitas-1.8.0-1.patch
 ARG UNITAS_PATCH_REFDUMP=unitas-1.8.0-6.patch
 ENV PATH=/opt/unitas:$PATH
