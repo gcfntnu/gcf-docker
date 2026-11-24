@@ -13,6 +13,8 @@
 #                               selected by the species' NCBI taxid (unitas_silva_species.awk):
 #                               the records of the old server's SILVA files. Later SILVA releases
 #                               do not fit (see the awk header).
+#                               The species' 45S pre-rRNA, a pinned RefSeq version from NCBI
+#                               (human NR_046235.3, mouse NR_046233.2, rat NR_046239.1).
 # Reused from an existing dump: tRF-1 and tRNA leaders, which were only ever served by the
 #                               smallRNAgroup server.
 #
@@ -26,6 +28,11 @@
 # transcripts <symbol>-<gene>_(n) (formerly <symbol>-(n), which merged transcripts of genes sharing a
 # symbol); the dump is rejected if either old form appears (gcfntnu/gcf-docker#56). The static
 # tRF-1 and tRNA-leader names lose any '>' after their first character (rat: tRF-1_>#297).
+# After the dump is written, unitas_refdump_extras.pl adds the 45S pre-rRNA to ncRNA.fas as
+# rRNA|45S_pre-rRNA-<accession> (gcfntnu/gcf-docker#61: reads from the 5' end of the 5.8S long form, 28S 5'-end variants
+# and the spacers had no reference), and masks by N every exact copy of a snoRNA or scaRNA (at least 50 nt) inside other
+# ncRNA.fas and cDNA.fas records (gcfntnu/gcf-docker#62: host-gene transcripts took most of a snoRNA read, since UNITAS
+# divides a read equally over every matching record). The counts are in gcf_refdump.log.
 #
 # With --mirna-db mirgenedb, MirGeneDB takes miRBase's place: unitas_mirgenedb2mirbase.awk writes
 # the MirGeneDB FASTA of all species in miRBase's header layout (mature and star sequences as the
@@ -63,7 +70,7 @@ while (( $# )); do
         --mirgenedb-release) mirgenedb_release=$2; shift 2 ;;
         --workdir) workdir=$2; shift 2 ;;
         --keep-raw) keep_raw=1; shift ;;
-        -h|--help) sed -n '2,51p' "$0"; exit 0 ;;
+        -h|--help) awk 'NR > 1 && !/^#/ { exit } NR > 1 { print }' "$0"; exit 0 ;;   # the header comment
         *) echo "unitas_build_refdump: unknown argument $1" >&2; exit 2 ;;
     esac
 done
@@ -72,6 +79,8 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 normalize_awk=$here/unitas_normalize_hairpin.awk
 silva_awk=$here/unitas_silva_species.awk
 [[ -r $silva_awk ]] || die "missing $silva_awk"
+extras=$here/unitas_refdump_extras.pl   # beside the builder, as the awk helpers
+[[ -r $extras ]] || die "missing $extras"
 mirgenedb_awk=$here/unitas_mirgenedb2mirbase.awk
 mirgenedb_species=$here/mirgenedb_species.tsv
 case $mirna_db in
@@ -87,9 +96,9 @@ done
 # Ensembl species name and assembly, GtRNAdb genome, NCBI taxid (for SILVA). GtRNAdb has no rat
 # GRCr8 (rn8) build; rn7 is the newest.
 case $species in
-    homo_sapiens)      ens_name=Homo_sapiens;      ens_asm=GRCh38; gtrnadb=Hsapi38/hg38; org=Human; code=hsa; taxid=9606 ;;
-    mus_musculus)      ens_name=Mus_musculus;      ens_asm=GRCm39; gtrnadb=Mmusc39/mm39; org=Mouse; code=mmu; taxid=10090 ;;
-    rattus_norvegicus) ens_name=Rattus_norvegicus; ens_asm=GRCr8;  gtrnadb=Rnorv7/rn7;   org=Rat;   code=rno; taxid=10116 ;;
+    homo_sapiens)      ens_name=Homo_sapiens;      ens_asm=GRCh38; gtrnadb=Hsapi38/hg38; org=Human; code=hsa; taxid=9606;  pre_rrna=NR_046235.3 ;;
+    mus_musculus)      ens_name=Mus_musculus;      ens_asm=GRCm39; gtrnadb=Mmusc39/mm39; org=Mouse; code=mmu; taxid=10090; pre_rrna=NR_046233.2 ;;
+    rattus_norvegicus) ens_name=Rattus_norvegicus; ens_asm=GRCr8;  gtrnadb=Rnorv7/rn7;   org=Rat;   code=rno; taxid=10116; pre_rrna=NR_046239.1 ;;
     *) die "unsupported species $species (homo_sapiens, mus_musculus, rattus_norvegicus)" ;;
 esac
 
@@ -158,6 +167,9 @@ cdna=$ens_name.$ens_asm.cdna.all.fa.gz
 trna=$(basename "$gtrnadb")-tRNAs.fa
 fetch "$ens_base/ncrna/$ncrna" "$src/$ncrna" fasta.gz
 fetch "$ens_base/cdna/$cdna" "$src/$cdna" fasta.gz
+# The species' 45S pre-rRNA, a pinned RefSeq version (gcfntnu/gcf-docker#61), added to ncRNA.fas after the dump
+fetch "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$pre_rrna&rettype=fasta&retmode=text" \
+    "$src/$pre_rrna.fa" fasta
 fetch "https://gtrnadb.ucsc.edu/genomes/eukaryota/$gtrnadb-tRNAs.fa" "$src/$trna" fasta
 renamed=$workdir/gcf_hairpin_renamed.tsv
 if [[ $mirna_db == mirbase ]]; then
@@ -282,6 +294,12 @@ bad=$(grep -h '^>.*>' "$dump/ncRNA.fas" "$dump/cDNA.fas" | head -3 | tr '\n' ' '
 [[ -z $bad ]] || die "headers with '>' after the first character (unitas.pl without unitas-1.8.0-6.patch?): $bad"
 bad=$(grep -E -- '-\([0-9]+\)$' "$dump/ncRNA.fas" | head -3 | tr '\n' ' ' || true)
 [[ -z $bad ]] || die "ncRNA.fas names without the gene ID, <symbol>-(n) (unitas.pl without unitas-1.8.0-6.patch?): $bad"
+# gcfntnu/gcf-docker#61 and #62: the 45S pre-rRNA in ncRNA.fas, and snoRNA/scaRNA copies masked by N in other ncRNA
+# and cDNA records (host-gene transcripts), since UNITAS divides a read equally over every matching record.
+# Masking first, so the 45S record is never masked.
+perl "$extras" mask "$dump/ncRNA.fas" "$dump/cDNA.fas" | tee -a "$log" || die "masking snoRNA copies failed"
+perl "$extras" add45s "$dump/ncRNA.fas" "$src/$pre_rrna.fa" "45S_pre-rRNA-$pre_rrna" "$pre_rrna" | tee -a "$log" \
+    || die "adding the 45S pre-rRNA failed"
 if (( ! keep_raw )); then
     rm -f "$dump/ensembl_ncRNA" "$dump/ensembl_cDNA" "$dump/miRBase_hairpin"
 fi

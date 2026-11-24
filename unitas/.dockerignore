@@ -8,4 +8,5 @@
 !unitas_normalize_hairpin.awk
 !unitas_mirgenedb2mirbase.awk
 !unitas_silva_species.awk
+!unitas_refdump_extras.pl
 !mirgenedb_species.tsv

@@ -58,6 +58,14 @@ for f in mature hairpin; do
         "$dump/gcf_sources.tsv" || fail "gcf_sources.tsv has no $mb/$f.fa row with a SHA-256"
 done
 grep -q 'build UNITAS_refdump_homo_sapiens (.*, miRBase 23.1)' "$tmp/ok.out" || fail "build log does not name miRBase 23.1"
+# The 45S pre-rRNA (gcfntnu/gcf-docker#61): the pinned RefSeq record, recorded with its SHA-256, added to ncRNA.fas.
+efetch='https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NR_046235.3&rettype=fasta&retmode=text'
+grep -qxF "$efetch" "$tmp/ok.urls" || fail "the 45S pre-rRNA NR_046235.3 was not requested"
+awk -F'\t' -v u="$efetch" '$1 == "NR_046235.3.fa" && $2 == u && length($3) == 64 { ok = 1 } END { exit !ok }' "$dump/gcf_sources.tsv" \
+    || fail "gcf_sources.tsv has no NR_046235.3.fa row with a SHA-256"
+tail -2 "$dump/ncRNA.fas" | diff -u - <(printf '>rRNA|45S_pre-rRNA-NR_046235.3\nTACCTGGTTGATCCTGCCAGTCGTACGACTCTTAGCGG\n') \
+    || fail "ncRNA.fas does not end with the 45S pre-rRNA record"
+grep -q '^masked ' "$dump/gcf_refdump.log" || fail "gcf_refdump.log does not report the snoRNA masking"
 
 # piRNA clusters and SILVA come from their public sources, recorded with checksums; SILVA is reduced
 # to the species (taxid 9606) in the old server's layout; only tRF-1 and tRNA leaders are static.

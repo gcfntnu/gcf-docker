@@ -118,6 +118,7 @@ files/
 /unitas/dummy.txt
 /unitas/seqmap.exe
 /unitas/unitas*.pl
+!/unitas/unitas_refdump_extras.pl
 
 # One-off container builds not referenced by gcf-workflows
 /APA-Scan/

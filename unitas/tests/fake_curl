@@ -17,6 +17,7 @@ content() {
         */mature.fa) printf '>hsa-let-7a-5p MIMAT0000062 Homo sapiens let-7a-5p\nUGAGGUAGUAGGUUGUAUAGUU\n>mmu-let-7a-5p MIMAT0000521 Mus musculus let-7a-5p\nUGAGGUAGUAGGUUGUAUAGUU\n' ;;
         */hairpin.fa) printf '>hsa-let-7a-1 MI0000060 Homo sapiens let-7a-1 stem-loop\nUGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA\n>mmu-let-7a-1 MI0000556 Mus musculus let-7a-1 stem-loop\nUUCACUGUGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUAAGGUGAU\n' ;;
         *tRNAs.fa) printf '>Homo_sapiens_tRNA-Ala-AGC-1-1\nGGGGGTGTAGCTCAG\n' ;;
+        *efetch.fcgi*) printf '>NR_046235.3 Homo sapiens RNA, 45S pre-ribosomal N5\nTACCTGGTTGATCCTGCCAG\nTCGTACGACTCTTAGCGG\n' ;;
         *piRNAclusters.fasta) printf '>Hsap_0001 4:10087069..10432971\nTTAGGGTTCAG\n' ;;
         *) printf '<html>Version 22.1</html>\n' ;;
     esac
